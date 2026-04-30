@@ -244,7 +244,9 @@ class QUVIAI_OT_render(Operator):
         try:
             from quviai import QuviClient, TokenExpiredError
         except ImportError:
-            self._finish(props, error="SDK missing. Run scripts/update_vendor.sh.")
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="SDK missing. Run scripts/update_vendor.sh.")
+            )
             return
 
         try:
@@ -296,13 +298,17 @@ class QUVIAI_OT_render(Operator):
                 )
 
             final_bytes = client.download_result(result)
-            self._finish(props, image_bytes=final_bytes)
+            # Schedule image loading on the main thread — bpy.data is not thread-safe
+            bpy.app.timers.register(lambda: self._finish(props, image_bytes=final_bytes))
 
         except TokenExpiredError:
             bpy.app.timers.register(lambda: self._clear_tokens(prefs))
-            self._finish(props, error="Session expired. Please log in again.")
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Session expired. Please log in again.")
+            )
         except Exception as exc:
-            self._finish(props, error=str(exc))
+            err_msg = str(exc)
+            bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
 
     @staticmethod
     def _set_status(props, message: str):
