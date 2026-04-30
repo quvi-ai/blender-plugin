@@ -68,7 +68,7 @@ def capture_viewport(context: bpy.types.Context) -> str:
 
 
 def load_image_into_blender(name: str, image_bytes: bytes) -> bpy.types.Image:
-    """Write bytes to a temp file, load as Blender image, then pack into .blend.
+    """Write bytes to a temp file, load as Blender image, pack into .blend, delete temp file.
     Must be called from the main thread.
     """
     tmp_path = os.path.join(tempfile.gettempdir(), name)
@@ -80,6 +80,7 @@ def load_image_into_blender(name: str, image_bytes: bytes) -> bpy.types.Image:
     img = bpy.data.images.load(tmp_path)
     img.name = name
     img.pack()
+    Path(tmp_path).unlink(missing_ok=True)
     return img
 
 

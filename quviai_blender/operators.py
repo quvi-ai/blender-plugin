@@ -337,7 +337,8 @@ class QUVIAI_OT_render(Operator):
         if image_bytes:
             img = load_image_into_blender(RESULT_IMAGE_NAME, image_bytes)
             props.result_image_name = img.name
-            props.status = "Done — result loaded in Image Editor."
+            opened = open_in_image_editor(bpy.context, img)
+            props.status = "Done." if opened else "Done — open an Image Editor to view the result."
         return None
 
 
