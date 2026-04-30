@@ -359,7 +359,11 @@ class QuviClient:
         if not outputs:
             raise QuviError(f"Task {task_id} completed but result payload is empty")
         first = outputs[0]
-        print(f"QUVIAI result type={type(result).__name__} first_50={repr(first[:50])}")
+        try:
+            with open("/tmp/quviai_debug.txt", "a") as _f:
+                _f.write(f"parse_result type={type(result).__name__} first_50={repr(first[:50])}\n")
+        except Exception:
+            pass
         if first.startswith(("http://", "https://", "//")):
             return GenerateResult(task_id=task_id, url=first)
         return GenerateResult(task_id=task_id, image_data=base64_to_bytes(first))

@@ -307,6 +307,12 @@ class QUVIAI_OT_render(Operator):
                 lambda: self._finish(props, error="Session expired. Please log in again.")
             )
         except Exception as exc:
+            import traceback
+            try:
+                with open("/tmp/quviai_error.txt", "w") as _f:
+                    _f.write(traceback.format_exc())
+            except Exception:
+                pass
             err_msg = str(exc)
             bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
 
