@@ -37,6 +37,41 @@ def capture_viewport(context: bpy.types.Context) -> bytes:
         scene.render.image_settings.file_format = original_format
 
 
+def process_for_upload(raw_bytes: bytes, context: bpy.types.Context, max_size: int = 2048) -> bytes:
+    """Resize so longest edge <= max_size and convert to WebP. Must run in main thread."""
+    tmp_png = os.path.join(tempfile.gettempdir(), "quviai_raw.png")
+    tmp_webp = os.path.join(tempfile.gettempdir(), "quviai_upload.webp")
+    Path(tmp_png).write_bytes(raw_bytes)
+
+    img = bpy.data.images.load(tmp_png, check_existing=False)
+    img.name = "_quviai_upload_tmp"
+    try:
+        w, h = img.size
+        if w > max_size or h > max_size:
+            if w >= h:
+                new_w = max_size
+                new_h = max(1, round(h * max_size / w))
+            else:
+                new_h = max_size
+                new_w = max(1, round(w * max_size / h))
+            img.scale(new_w, new_h)
+
+        scene = context.scene
+        orig_format = scene.render.image_settings.file_format
+        orig_quality = scene.render.image_settings.quality
+        scene.render.image_settings.file_format = "WEBP"
+        scene.render.image_settings.quality = 90
+        try:
+            img.save_render(tmp_webp, scene=scene)
+        finally:
+            scene.render.image_settings.file_format = orig_format
+            scene.render.image_settings.quality = orig_quality
+
+        return Path(tmp_webp).read_bytes()
+    finally:
+        bpy.data.images.remove(img)
+
+
 def load_image_into_blender(name: str, image_bytes: bytes) -> bpy.types.Image:
     """Write bytes to a temp file, load as Blender image, then pack into .blend."""
     tmp_path = os.path.join(tempfile.gettempdir(), name)

@@ -13,6 +13,7 @@ from .utils import (
     get_preferences,
     load_image_into_blender,
     open_in_image_editor,
+    process_for_upload,
 )
 
 RESULT_IMAGE_NAME = "QUVIAI_Result.png"
@@ -207,6 +208,7 @@ class QUVIAI_OT_render(Operator):
 
         try:
             image_bytes = capture_viewport(context)
+            image_bytes = process_for_upload(image_bytes, context)
         except Exception as exc:
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
