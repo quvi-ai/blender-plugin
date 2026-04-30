@@ -17,42 +17,31 @@ class QUVIAI_PT_main(Panel):
         layout = self.layout
         props = context.scene.quviai
         prefs = get_preferences(context)
-        is_logged_in = bool(prefs.access_token)
 
-        if not is_logged_in:
+        if not bool(prefs.access_token):
             box = layout.box()
             box.label(text="Not logged in", icon="ERROR")
             box.label(text="Edit > Preferences > Add-ons > QUVIAI Render")
             return
 
-        layout.prop(props, "mode", text="Mode")
-        layout.separator()
-
+        # --- Render settings ---
         col = layout.column(align=True)
-
-        if props.mode == "CANVAS":
-            col.prop(props, "prompt", text="Prompt")
-            col.prop(props, "is_sketch")
-
-        elif props.mode == "RENDER_3D":
-            col.prop(props, "prompt", text="Prompt")
-            col.prop(props, "style", text="Style")
-            col.prop(props, "render_type", text="Render Type")
-            row = col.row(align=True)
-            row.prop(props, "day_time", text="Time")
-            row.prop(props, "weather", text="Weather")
-
-        else:  # TEXT_IMAGE
-            col.prop(props, "prompt", text="Prompt")
-            col.prop(props, "style", text="Style")
-            row = col.row(align=True)
-            row.prop(props, "width", text="W")
-            row.prop(props, "height", text="H")
+        col.prop(props, "prompt", text="Prompt")
+        col.prop(props, "style", text="Style")
+        col.prop(props, "render_type", text="Render Type")
+        row = col.row(align=True)
+        row.prop(props, "day_time", text="Time")
+        row.prop(props, "weather", text="Weather")
 
         layout.separator()
 
+        # --- Action / status ---
         if props.is_rendering:
             box = layout.box()
+            # Progress bar
+            if props.progress > 0:
+                row = box.row()
+                row.prop(props, "progress", text="Progress", slider=True)
             box.label(text=props.status or "Rendering…", icon="SORTTIME")
             box.operator("quviai.cancel", icon="X")
         else:

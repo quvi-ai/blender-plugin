@@ -13,6 +13,7 @@ class TaskStatus:
     queue_position: int = 0
     eta_seconds: int | None = None
     eta_formatted: str | None = None
+    progress_percentage: float | None = None
 
 
 @dataclass

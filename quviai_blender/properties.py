@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from bpy.types import PropertyGroup
 
 # (blender_id, display_name, api_value)
@@ -72,32 +72,13 @@ STYLE_TO_API = {s[0]: s[2] for s in _STYLES}
 class QuviAIProperties(PropertyGroup):
     """Per-scene QUVIAI state, stored in scene.quviai."""
 
-    mode: EnumProperty(
-        name="Mode",
-        description="Which QUVIAI generation mode to use",
-        items=[
-            ("CANVAS",     "Canvas",        "Transform viewport screenshot with AI"),
-            ("RENDER_3D",  "3D Render",     "Generate architectural render from prompt + viewport"),
-            ("TEXT_IMAGE", "Text to Image", "Generate image from text prompt only"),
-        ],
-        default="CANVAS",
-    )  # type: ignore[assignment]
-
-    # --- Common ---
+    # --- Render-TD parameters ---
     prompt: StringProperty(
         name="Prompt",
-        description="Text prompt to guide the AI generation",
+        description="Text prompt describing the desired render",
         default="",
     )  # type: ignore[assignment]
 
-    # --- Canvas only ---
-    is_sketch: BoolProperty(
-        name="Sketch Mode",
-        description="Treat the viewport screenshot as a sketch and recompose it",
-        default=False,
-    )  # type: ignore[assignment]
-
-    # --- 3D Render & Text to Image ---
     style: EnumProperty(
         name="Style",
         description="Architectural or artistic style",
@@ -105,7 +86,6 @@ class QuviAIProperties(PropertyGroup):
         default="no_style",
     )  # type: ignore[assignment]
 
-    # --- 3D Render only ---
     render_type: EnumProperty(
         name="Render Type",
         description="Architectural render type",
@@ -144,28 +124,10 @@ class QuviAIProperties(PropertyGroup):
         default="NONE",
     )  # type: ignore[assignment]
 
-    # --- Text to Image only ---
-    width: IntProperty(
-        name="Width",
-        description="Output image width in pixels",
-        default=1024,
-        min=256,
-        max=4096,
-        step=64,
-    )  # type: ignore[assignment]
-
-    height: IntProperty(
-        name="Height",
-        description="Output image height in pixels",
-        default=1024,
-        min=256,
-        max=4096,
-        step=64,
-    )  # type: ignore[assignment]
-
     # --- Task state ---
     is_rendering: BoolProperty(default=False)  # type: ignore[assignment]
     status: StringProperty(default="")  # type: ignore[assignment]
+    progress: FloatProperty(default=0.0, min=0.0, max=100.0)  # type: ignore[assignment]
     result_image_name: StringProperty(default="")  # type: ignore[assignment]
 
 

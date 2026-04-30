@@ -13,8 +13,8 @@ class JobPoller:
     def __init__(
         self,
         http_client: object,
-        interval: float = 3.0,
-        timeout: float = 120.0,
+        interval: float = 2.0,
+        timeout: float = 900.0,
         on_status: Callable[[TaskStatus], None] | None = None,
     ) -> None:
         self._http = http_client
@@ -64,4 +64,5 @@ class JobPoller:
             queue_position=response.get("queue_position", 0),
             eta_seconds=eta.get("eta_seconds"),
             eta_formatted=eta.get("eta_formatted"),
+            progress_percentage=eta.get("progress_percentage"),
         )

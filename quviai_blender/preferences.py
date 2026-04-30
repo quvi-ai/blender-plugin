@@ -47,17 +47,17 @@ class QuviAIPreferences(AddonPreferences):
     poll_interval: FloatProperty(
         name="Poll Interval (s)",
         description="How often to check render status",
-        default=3.0,
+        default=2.0,
         min=1.0,
-        max=30.0,
+        max=10.0,
     )  # type: ignore[assignment]
 
     poll_timeout: FloatProperty(
         name="Poll Timeout (s)",
         description="Maximum time to wait for a render task",
-        default=120.0,
-        min=30.0,
-        max=600.0,
+        default=900.0,
+        min=60.0,
+        max=1800.0,
     )  # type: ignore[assignment]
 
     def draw(self, context: bpy.types.Context) -> None:

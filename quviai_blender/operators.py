@@ -206,28 +206,23 @@ class QUVIAI_OT_render(Operator):
             self.report({"WARNING"}, "A render is already in progress.")
             return {"CANCELLED"}
 
-        image_b64 = None
-        if props.mode != "TEXT_IMAGE":
-            try:
-                image_b64 = capture_viewport(context)
-            except Exception as exc:
-                self.report({"ERROR"}, f"Viewport capture failed: {exc}")
-                return {"CANCELLED"}
+        try:
+            image_b64 = capture_viewport(context)
+        except Exception as exc:
+            self.report({"ERROR"}, f"Viewport capture failed: {exc}")
+            return {"CANCELLED"}
 
         # Snapshot all mutable UI state before handing off to the background thread
         params = {
-            "mode":        props.mode,
             "prompt":      props.prompt,
-            "is_sketch":   props.is_sketch,
             "style":       STYLE_TO_API.get(props.style, "no style"),
             "render_type": None if props.render_type == "NONE" else props.render_type,
-            "day_time":    None if props.day_time  == "NONE" else props.day_time,
-            "weather":     None if props.weather   == "NONE" else props.weather,
-            "width":       props.width,
-            "height":      props.height,
+            "day_time":    None if props.day_time    == "NONE" else props.day_time,
+            "weather":     None if props.weather     == "NONE" else props.weather,
         }
 
         props.is_rendering = True
+        props.progress = 0.0
         props.status = "Submitting to QUVIAI..."
         props.result_image_name = ""
 
@@ -239,7 +234,7 @@ class QUVIAI_OT_render(Operator):
         thread.start()
         return {"FINISHED"}
 
-    def _run_in_thread(self, prefs, props, image_b64: str | None, params: dict) -> None:
+    def _run_in_thread(self, prefs, props, image_b64: str, params: dict) -> None:
         ensure_vendor_in_path()
         try:
             from quviai import QuviClient, TokenExpiredError
@@ -260,37 +255,24 @@ class QUVIAI_OT_render(Operator):
             )
 
             def on_status(status):
-                msg = f"Rendering… queue position: {status.queue_position}"
-                if status.eta_formatted and status.eta_formatted != "Completed":
-                    msg += f", ETA: {status.eta_formatted}"
-                bpy.app.timers.register(lambda: self._set_status(props, msg))
+                parts = []
+                if status.queue_position:
+                    parts.append(f"Queue: {status.queue_position}")
+                if status.eta_formatted and status.eta_formatted not in ("Completed", ""):
+                    parts.append(f"ETA: {status.eta_formatted}")
+                msg = " · ".join(parts) if parts else "Processing…"
+                pct = status.progress_percentage
+                bpy.app.timers.register(lambda: self._set_progress(props, msg, pct))
 
-            mode = params["mode"]
-            if mode == "CANVAS":
-                result = client.generate_canvas(
-                    image_b64,
-                    prompt=params["prompt"],
-                    is_sketch=params["is_sketch"],
-                    on_status=on_status,
-                )
-            elif mode == "RENDER_3D":
-                result = client.render_3d(
-                    prompt=params["prompt"],
-                    style=params["style"],
-                    day_time=params["day_time"],
-                    weather=params["weather"],
-                    render_type=params["render_type"],
-                    image=image_b64,
-                    on_status=on_status,
-                )
-            else:  # TEXT_IMAGE
-                result = client.generate_image(
-                    prompt=params["prompt"],
-                    style=params["style"],
-                    width=params["width"],
-                    height=params["height"],
-                    on_status=on_status,
-                )
+            result = client.render_3d(
+                prompt=params["prompt"],
+                style=params["style"],
+                day_time=params["day_time"],
+                weather=params["weather"],
+                render_type=params["render_type"],
+                image=image_b64,
+                on_status=on_status,
+            )
 
             if client.access_token != prefs.access_token:
                 bpy.app.timers.register(
@@ -298,7 +280,6 @@ class QUVIAI_OT_render(Operator):
                 )
 
             final_bytes = client.download_result(result)
-            # Schedule image loading on the main thread — bpy.data is not thread-safe
             bpy.app.timers.register(lambda: self._finish(props, image_bytes=final_bytes))
 
         except TokenExpiredError:
@@ -317,8 +298,10 @@ class QUVIAI_OT_render(Operator):
             bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
 
     @staticmethod
-    def _set_status(props, message: str):
+    def _set_progress(props, message: str, pct: float | None):
         props.status = message
+        if pct is not None:
+            props.progress = float(pct)
         return None
 
     @staticmethod

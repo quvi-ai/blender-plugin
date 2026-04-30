@@ -31,11 +31,33 @@ def base64_to_bytes(b64: str) -> bytes:
 def normalize_result(result) -> list[str]:
     """Return the list of output URLs or base64 strings from a completed task.
 
-    The API returns result as a list of URLs for video/3D tasks, or as a dict
-    with an 'images' key for image generation tasks.
+    Checks the same candidate fields as the web frontend to handle all API
+    response variants (list, dict with urls/images/url/image/file_url, nested).
     """
     if not result:
         return []
+
     if isinstance(result, list):
-        return result
-    return result.get("urls") or result.get("images") or []
+        return [v for v in result if isinstance(v, str) and v]
+
+    def _extract(d: dict) -> list[str]:
+        for key in ("urls", "images", "image", "url", "file_url"):
+            val = d.get(key)
+            if isinstance(val, list):
+                items = [v for v in val if isinstance(v, str) and v]
+                if items:
+                    return items
+            if isinstance(val, str) and val:
+                return [val]
+        return []
+
+    found = _extract(result)
+    if found:
+        return found
+
+    # Check one level deeper under a nested "result" key
+    nested = result.get("result")
+    if isinstance(nested, dict):
+        return _extract(nested)
+
+    return []
