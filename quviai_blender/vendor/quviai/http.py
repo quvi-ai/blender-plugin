@@ -31,7 +31,7 @@ class HTTPClient:
         self,
         auth: JWTAuth,
         base_url: str = BASE_URL,
-        timeout: int = 30,
+        timeout: int = 120,
     ) -> None:
         self._auth = auth
         self._base_url = base_url.rstrip("/")

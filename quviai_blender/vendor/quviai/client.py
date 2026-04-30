@@ -344,9 +344,14 @@ class QuviClient:
     def _encode(image: str | Path | bytes) -> str:
         if isinstance(image, bytes):
             return bytes_to_base64(image)
-        if isinstance(image, Path) or Path(image).is_file():
+        if isinstance(image, Path):
             return image_to_base64(image)
-        return str(image)  # already a base64-encoded string
+        try:
+            if Path(image).is_file():
+                return image_to_base64(image)
+        except OSError:
+            pass  # path too long or invalid — treat as pre-encoded base64
+        return str(image)
 
     @staticmethod
     def _parse_result(task_id: str, result: dict) -> GenerateResult:
@@ -372,7 +377,7 @@ class QuviClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             try:
