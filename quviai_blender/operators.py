@@ -7,6 +7,7 @@ import bpy
 from bpy.types import Operator
 
 from .constants import CLIENT_KEY, GOOGLE_CLIENT_ID, GOOGLE_OAUTH_PORT
+from .properties import STYLE_TO_API
 from .utils import (
     capture_viewport,
     ensure_vendor_in_path,
@@ -205,11 +206,26 @@ class QUVIAI_OT_render(Operator):
             self.report({"WARNING"}, "A render is already in progress.")
             return {"CANCELLED"}
 
-        try:
-            image_b64 = capture_viewport(context)
-        except Exception as exc:
-            self.report({"ERROR"}, f"Viewport capture failed: {exc}")
-            return {"CANCELLED"}
+        image_b64 = None
+        if props.mode != "TEXT_IMAGE":
+            try:
+                image_b64 = capture_viewport(context)
+            except Exception as exc:
+                self.report({"ERROR"}, f"Viewport capture failed: {exc}")
+                return {"CANCELLED"}
+
+        # Snapshot all mutable UI state before handing off to the background thread
+        params = {
+            "mode":        props.mode,
+            "prompt":      props.prompt,
+            "is_sketch":   props.is_sketch,
+            "style":       STYLE_TO_API.get(props.style, "no style"),
+            "render_type": None if props.render_type == "NONE" else props.render_type,
+            "day_time":    None if props.day_time  == "NONE" else props.day_time,
+            "weather":     None if props.weather   == "NONE" else props.weather,
+            "width":       props.width,
+            "height":      props.height,
+        }
 
         props.is_rendering = True
         props.status = "Submitting to QUVIAI..."
@@ -217,16 +233,16 @@ class QUVIAI_OT_render(Operator):
 
         thread = threading.Thread(
             target=self._run_in_thread,
-            args=(prefs, props, image_b64),
+            args=(prefs, props, image_b64, params),
             daemon=True,
         )
         thread.start()
         return {"FINISHED"}
 
-    def _run_in_thread(self, prefs, props, image_b64: str) -> None:
+    def _run_in_thread(self, prefs, props, image_b64: str | None, params: dict) -> None:
         ensure_vendor_in_path()
         try:
-            from quviai import QuviClient, QuviError, TokenExpiredError
+            from quviai import QuviClient, TokenExpiredError
         except ImportError:
             self._finish(props, error="SDK missing. Run scripts/update_vendor.sh.")
             return
@@ -247,14 +263,33 @@ class QUVIAI_OT_render(Operator):
                     msg += f", ETA: {status.eta_formatted}"
                 bpy.app.timers.register(lambda: self._set_status(props, msg))
 
-            result = client.generate_canvas(
-                image_b64,
-                prompt=props.prompt,
-                is_sketch=props.is_sketch,
-                on_status=on_status,
-            )
+            mode = params["mode"]
+            if mode == "CANVAS":
+                result = client.generate_canvas(
+                    image_b64,
+                    prompt=params["prompt"],
+                    is_sketch=params["is_sketch"],
+                    on_status=on_status,
+                )
+            elif mode == "RENDER_3D":
+                result = client.render_3d(
+                    prompt=params["prompt"],
+                    style=params["style"],
+                    day_time=params["day_time"],
+                    weather=params["weather"],
+                    render_type=params["render_type"],
+                    image=image_b64,
+                    on_status=on_status,
+                )
+            else:  # TEXT_IMAGE
+                result = client.generate_image(
+                    prompt=params["prompt"],
+                    style=params["style"],
+                    width=params["width"],
+                    height=params["height"],
+                    on_status=on_status,
+                )
 
-            # If the token was refreshed during the request, save it
             if client.access_token != prefs.access_token:
                 bpy.app.timers.register(
                     lambda: self._save_tokens(prefs, client.access_token, client.refresh_token)

@@ -19,22 +19,38 @@ class QUVIAI_PT_main(Panel):
         prefs = get_preferences(context)
         is_logged_in = bool(prefs.access_token)
 
-        # --- Auth status ---
         if not is_logged_in:
             box = layout.box()
             box.label(text="Not logged in", icon="ERROR")
             box.label(text="Edit > Preferences > Add-ons > QUVIAI Render")
             return
 
-        # --- Render settings ---
+        layout.prop(props, "mode", text="Mode")
+        layout.separator()
+
         col = layout.column(align=True)
-        col.label(text="Render Settings:", icon="RENDER_STILL")
-        col.prop(props, "prompt", text="Prompt")
-        col.prop(props, "is_sketch")
+
+        if props.mode == "CANVAS":
+            col.prop(props, "prompt", text="Prompt")
+            col.prop(props, "is_sketch")
+
+        elif props.mode == "RENDER_3D":
+            col.prop(props, "prompt", text="Prompt")
+            col.prop(props, "style", text="Style")
+            col.prop(props, "render_type", text="Render Type")
+            row = col.row(align=True)
+            row.prop(props, "day_time", text="Time")
+            row.prop(props, "weather", text="Weather")
+
+        else:  # TEXT_IMAGE
+            col.prop(props, "prompt", text="Prompt")
+            col.prop(props, "style", text="Style")
+            row = col.row(align=True)
+            row.prop(props, "width", text="W")
+            row.prop(props, "height", text="H")
 
         layout.separator()
 
-        # --- Action area ---
         if props.is_rendering:
             box = layout.box()
             box.label(text=props.status or "Rendering…", icon="SORTTIME")
