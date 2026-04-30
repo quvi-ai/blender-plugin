@@ -78,8 +78,8 @@ class QuviAIPreferences(AddonPreferences):
             col = box.column(align=True)
             col.operator("quviai.login_email", text="Log In", icon="PLAY")
             col.separator()
-            col.label(text="Or log in via your browser:")
-            col.operator("quviai.login_browser", text="Log In with Google / Apple", icon="URL")
+            col.label(text="Or:")
+            col.operator("quviai.login_google", text="Log In with Google", icon="URL")
 
         # --- Advanced ---
         box = layout.box()

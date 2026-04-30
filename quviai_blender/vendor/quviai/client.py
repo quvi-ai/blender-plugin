@@ -56,16 +56,19 @@ class QuviClient:
         email: str,
         password: str,
         base_url: str = BASE_URL,
+        client_key: str | None = None,
         **kwargs,
     ) -> "QuviClient":
         """Log in with email and password, return an authenticated client."""
         data = cls._unauthenticated_post(
             f"{base_url.rstrip('/')}/auth/jwt/create/",
             {"email": email, "password": password},
+            client_key=client_key,
         )
         auth = JWTAuth(
             access_token=data["access"],
             refresh_token=data.get("refresh"),
+            client_key=client_key,
         )
         return cls(auth=auth, base_url=base_url, **kwargs)
 
@@ -75,10 +78,15 @@ class QuviClient:
         access_token: str,
         refresh_token: str | None = None,
         base_url: str = BASE_URL,
+        client_key: str | None = None,
         **kwargs,
     ) -> "QuviClient":
         """Create a client from previously stored JWT tokens."""
-        auth = JWTAuth(access_token=access_token, refresh_token=refresh_token)
+        auth = JWTAuth(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            client_key=client_key,
+        )
         return cls(auth=auth, base_url=base_url, **kwargs)
 
     @classmethod
@@ -88,21 +96,23 @@ class QuviClient:
         redirect_uri: str,
         client_type: str = "android",
         base_url: str = BASE_URL,
+        client_key: str | None = None,
         **kwargs,
     ) -> "QuviClient":
         """Exchange a Google serverAuthCode for QUVIAI JWT tokens.
 
-        The ``auth_code`` must be obtained from the Google Sign-In SDK (mobile)
-        or from a standard OAuth2 browser flow (desktop). ``redirect_uri`` must
-        match exactly what was used when initiating the OAuth flow.
+        The ``auth_code`` must be obtained from a standard OAuth2 browser flow.
+        ``redirect_uri`` must match exactly what was used when initiating the flow.
         """
         data = cls._unauthenticated_post(
             f"{base_url.rstrip('/')}/api/auth/google/native/",
             {"code": auth_code, "redirect_uri": redirect_uri, "client_type": client_type},
+            client_key=client_key,
         )
         auth = JWTAuth(
             access_token=data["access"],
             refresh_token=data.get("refresh"),
+            client_key=client_key,
         )
         return cls(auth=auth, base_url=base_url, **kwargs)
 
@@ -112,6 +122,7 @@ class QuviClient:
         identity_token: str | None = None,
         authorization_code: str | None = None,
         base_url: str = BASE_URL,
+        client_key: str | None = None,
         **kwargs,
     ) -> "QuviClient":
         """Exchange an Apple Sign In token for QUVIAI JWT tokens.
@@ -129,10 +140,12 @@ class QuviClient:
         data = cls._unauthenticated_post(
             f"{base_url.rstrip('/')}/api/auth/apple/native/",
             body,
+            client_key=client_key,
         )
         auth = JWTAuth(
             access_token=data["access"],
             refresh_token=data.get("refresh"),
+            client_key=client_key,
         )
         return cls(auth=auth, base_url=base_url, **kwargs)
 
@@ -344,13 +357,16 @@ class QuviClient:
         return GenerateResult(task_id=task_id, image_data=base64_to_bytes(first))
 
     @staticmethod
-    def _unauthenticated_post(url: str, body: dict) -> dict:
-        """POST without auth headers — used only for login endpoints."""
+    def _unauthenticated_post(url: str, body: dict, client_key: str | None = None) -> dict:
+        """POST without user auth headers — used only for login endpoints."""
         data = json.dumps(body).encode()
+        headers: dict[str, str] = {"Content-Type": "application/json", "Accept": "application/json"}
+        if client_key:
+            headers["X-API-Key"] = client_key
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers=headers,
             method="POST",
         )
         try:

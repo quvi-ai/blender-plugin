@@ -6,6 +6,7 @@ import webbrowser
 import bpy
 from bpy.types import Operator
 
+from .constants import CLIENT_KEY, GOOGLE_CLIENT_ID, GOOGLE_OAUTH_PORT
 from .utils import (
     capture_viewport,
     ensure_vendor_in_path,
@@ -47,6 +48,7 @@ class QUVIAI_OT_login_email(Operator):
                 prefs.email,
                 prefs.password,
                 base_url=prefs.base_url,
+                client_key=CLIENT_KEY,
             )
             prefs.access_token = client.access_token
             prefs.refresh_token = client.refresh_token or ""
@@ -61,22 +63,108 @@ class QUVIAI_OT_login_email(Operator):
             return {"CANCELLED"}
 
 
-class QUVIAI_OT_login_browser(Operator):
-    """Open quvi.ai in the browser to log in with Google or Apple"""
+class QUVIAI_OT_login_google(Operator):
+    """Log in to QUVIAI with Google (opens browser, handles callback automatically)"""
 
-    bl_idname = "quviai.login_browser"
-    bl_label = "Open QUVIAI Login Page"
+    bl_idname = "quviai.login_google"
+    bl_label = "Log In with Google"
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
         prefs = get_preferences(context)
-        webbrowser.open(f"{prefs.base_url}/login")
-        self.report(
-            {"INFO"},
-            "Browser opened. After logging in, paste your access token into "
-            "the 'Paste Token' field in preferences (coming in next update).",
+        ensure_vendor_in_path()
+        try:
+            from quviai import QuviClient, LoginError
+        except ImportError:
+            self.report({"ERROR"}, "SDK missing. Run scripts/update_vendor.sh.")
+            return {"CANCELLED"}
+
+        redirect_uri = f"http://localhost:{GOOGLE_OAUTH_PORT}"
+        auth_url = (
+            "https://accounts.google.com/o/oauth2/v2/auth"
+            f"?client_id={GOOGLE_CLIENT_ID}"
+            f"&redirect_uri={redirect_uri}"
+            "&response_type=code"
+            "&scope=email%20profile"
+            "&access_type=offline"
         )
+
+        webbrowser.open(auth_url)
+        self.report({"INFO"}, "Browser opened — waiting for Google login…")
+
+        # Run the local callback server in a background thread
+        thread = threading.Thread(
+            target=self._wait_for_callback,
+            args=(prefs, redirect_uri),
+            daemon=True,
+        )
+        thread.start()
         return {"FINISHED"}
+
+    def _wait_for_callback(self, prefs, redirect_uri: str) -> None:
+        import urllib.parse
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        received: dict = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                received["code"] = params.get("code", [None])[0]
+                received["error"] = params.get("error", [None])[0]
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(
+                    b"<h2>Login successful! You can close this tab and return to Blender.</h2>"
+                )
+
+            def log_message(self, *args):
+                pass  # suppress server log output
+
+        server = HTTPServer(("localhost", GOOGLE_OAUTH_PORT), Handler)
+        server.timeout = 120  # wait up to 2 minutes for the user to log in
+        server.handle_request()
+        server.server_close()
+
+        code = received.get("code")
+        error = received.get("error")
+
+        if error or not code:
+            bpy.app.timers.register(
+                lambda: self._set_error(prefs, f"Google login failed: {error or 'no code received'}")
+            )
+            return
+
+        ensure_vendor_in_path()
+        try:
+            from quviai import QuviClient, LoginError
+            client = QuviClient.login_with_google(
+                auth_code=code,
+                redirect_uri=redirect_uri,
+                client_type="android",
+                base_url=prefs.base_url,
+                client_key=CLIENT_KEY,
+            )
+            bpy.app.timers.register(
+                lambda: self._save_tokens(prefs, client.access_token, client.refresh_token)
+            )
+        except Exception as exc:
+            bpy.app.timers.register(
+                lambda: self._set_error(prefs, str(exc))
+            )
+
+    @staticmethod
+    def _save_tokens(prefs, access: str, refresh: str | None):
+        prefs.access_token = access
+        prefs.refresh_token = refresh or ""
+        return None
+
+    @staticmethod
+    def _set_error(prefs, message: str):
+        # Can't call self.report from a timer — use print as fallback
+        print(f"QUVIAI Google login error: {message}")
+        return None
 
 
 class QUVIAI_OT_logout(Operator):
@@ -148,6 +236,7 @@ class QUVIAI_OT_render(Operator):
                 access_token=prefs.access_token,
                 refresh_token=prefs.refresh_token or None,
                 base_url=prefs.base_url,
+                client_key=CLIENT_KEY,
                 poll_interval=prefs.poll_interval,
                 poll_timeout=prefs.poll_timeout,
             )
@@ -250,7 +339,7 @@ class QUVIAI_OT_open_result(Operator):
 
 def register() -> None:
     bpy.utils.register_class(QUVIAI_OT_login_email)
-    bpy.utils.register_class(QUVIAI_OT_login_browser)
+    bpy.utils.register_class(QUVIAI_OT_login_google)
     bpy.utils.register_class(QUVIAI_OT_logout)
     bpy.utils.register_class(QUVIAI_OT_render)
     bpy.utils.register_class(QUVIAI_OT_cancel)
@@ -262,5 +351,5 @@ def unregister() -> None:
     bpy.utils.unregister_class(QUVIAI_OT_cancel)
     bpy.utils.unregister_class(QUVIAI_OT_render)
     bpy.utils.unregister_class(QUVIAI_OT_logout)
-    bpy.utils.unregister_class(QUVIAI_OT_login_browser)
+    bpy.utils.unregister_class(QUVIAI_OT_login_google)
     bpy.utils.unregister_class(QUVIAI_OT_login_email)
