@@ -17,10 +17,10 @@ RESULT_IMAGE_NAME = "QUVIAI_Result.png"
 
 
 class QUVIAI_OT_render(Operator):
-    """Capture the 3D Viewport and render it with QUVI AI"""
+    """Capture the 3D Viewport and render it with QUVIAI"""
 
     bl_idname = "quviai.render"
-    bl_label = "Render with QUVI AI"
+    bl_label = "Render with QUVIAI"
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
@@ -30,7 +30,7 @@ class QUVIAI_OT_render(Operator):
         if not prefs.api_key:
             self.report(
                 {"ERROR"},
-                "API key not set. Go to Edit > Preferences > Add-ons > QUVI AI Render.",
+                "API key not set. Go to Edit > Preferences > Add-ons > QUVIAI Render.",
             )
             return {"CANCELLED"}
 
@@ -45,7 +45,7 @@ class QUVIAI_OT_render(Operator):
             return {"CANCELLED"}
 
         props.is_rendering = True
-        props.status = "Submitting to QUVI AI..."
+        props.status = "Submitting to QUVIAI..."
         props.result_image_name = ""
 
         thread = threading.Thread(
@@ -110,7 +110,7 @@ class QUVIAI_OT_render(Operator):
 
 
 class QUVIAI_OT_cancel(Operator):
-    """Cancel the running QUVI AI render (stops polling; task may still run on server)"""
+    """Cancel the running QUVIAI render (stops polling; task may still run on server)"""
 
     bl_idname = "quviai.cancel"
     bl_label = "Cancel"
@@ -124,7 +124,7 @@ class QUVIAI_OT_cancel(Operator):
 
 
 class QUVIAI_OT_open_result(Operator):
-    """Open the last QUVI AI result in the Image Editor"""
+    """Open the last QUVIAI result in the Image Editor"""
 
     bl_idname = "quviai.open_result"
     bl_label = "Open in Image Editor"

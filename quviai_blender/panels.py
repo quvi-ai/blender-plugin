@@ -7,11 +7,11 @@ from .utils import get_preferences
 
 
 class QUVIAI_PT_main(Panel):
-    bl_label = "QUVI AI Render"
+    bl_label = "QUVIAI Render"
     bl_idname = "QUVIAI_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "QUVI AI"
+    bl_category = "QUVIAI"
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
@@ -22,7 +22,7 @@ class QUVIAI_PT_main(Panel):
         if not prefs.api_key:
             box = layout.box()
             box.label(text="API key not set!", icon="ERROR")
-            box.label(text="Edit > Preferences > Add-ons > QUVI AI Render")
+            box.label(text="Edit > Preferences > Add-ons > QUVIAI Render")
             return
 
         # --- Camera angle controls ---

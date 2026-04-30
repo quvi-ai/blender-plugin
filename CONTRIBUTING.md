@@ -1,4 +1,4 @@
-# Contributing to QUVI AI Render (Blender Add-on)
+# Contributing to QUVIAI Render (Blender Add-on)
 
 Thank you for your interest in contributing!
 

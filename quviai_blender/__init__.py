@@ -1,15 +1,15 @@
-"""QUVI AI Render — Blender Add-on.
+"""QUVIAI Render — Blender Add-on.
 
 Captures the 3D Viewport and sends it to the QUVIAI API for AI rendering.
 Results appear automatically in the Image Editor.
 """
 
 bl_info = {
-    "name": "QUVI AI Render",
+    "name": "QUVIAI Render",
     "author": "QUVIAI",
     "version": (0, 1, 0),
     "blender": (4, 0, 0),
-    "location": "View3D > N-Panel > QUVI AI",
+    "location": "View3D > N-Panel > QUVIAI",
     "description": "AI-powered viewport rendering via the QUVIAI API",
     "category": "Render",
     "doc_url": "https://github.com/quvi-ai/blender-plugin",

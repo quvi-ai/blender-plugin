@@ -6,7 +6,7 @@ from bpy.types import PropertyGroup
 
 
 class QuviAIProperties(PropertyGroup):
-    """Per-scene QUVI AI state, stored in scene.quviai."""
+    """Per-scene QUVIAI state, stored in scene.quviai."""
 
     h_angle: IntProperty(
         name="Horizontal Angle",
