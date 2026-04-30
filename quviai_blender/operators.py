@@ -13,7 +13,6 @@ from .utils import (
     get_preferences,
     load_image_into_blender,
     open_in_image_editor,
-    process_for_upload,
 )
 
 RESULT_IMAGE_NAME = "QUVIAI_Result.png"
@@ -207,8 +206,7 @@ class QUVIAI_OT_render(Operator):
             return {"CANCELLED"}
 
         try:
-            image_bytes = capture_viewport(context)
-            image_bytes = process_for_upload(image_bytes, context)
+            image_b64 = capture_viewport(context)
         except Exception as exc:
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
@@ -219,13 +217,13 @@ class QUVIAI_OT_render(Operator):
 
         thread = threading.Thread(
             target=self._run_in_thread,
-            args=(prefs, props, image_bytes),
+            args=(prefs, props, image_b64),
             daemon=True,
         )
         thread.start()
         return {"FINISHED"}
 
-    def _run_in_thread(self, prefs, props, image_bytes: bytes) -> None:
+    def _run_in_thread(self, prefs, props, image_b64: str) -> None:
         ensure_vendor_in_path()
         try:
             from quviai import QuviClient, QuviError, TokenExpiredError
@@ -250,7 +248,7 @@ class QUVIAI_OT_render(Operator):
                 bpy.app.timers.register(lambda: self._set_status(props, msg))
 
             result = client.generate_canvas(
-                image_bytes,
+                image_b64,
                 prompt=props.prompt,
                 is_sketch=props.is_sketch,
                 on_status=on_status,

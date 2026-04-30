@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import os
 import sys
 import tempfile
@@ -15,50 +16,43 @@ def ensure_vendor_in_path() -> None:
         sys.path.insert(0, vendor)
 
 
-def capture_viewport(context: bpy.types.Context) -> bytes:
-    """Capture the active 3D Viewport as PNG bytes using OpenGL render.
+def capture_viewport(context: bpy.types.Context) -> str:
+    """Capture the active 3D Viewport as a base64-encoded WebP string.
 
-    Temporarily overrides scene.render.filepath to a temp file, runs
-    render.opengl, then restores the original filepath.
+    Resizes so the longest edge is at most 2048 px (aspect preserved),
+    converts to WebP quality 90, and returns the base64 string.
+    Must be called from the main thread.
     """
     scene = context.scene
-    original_filepath = scene.render.filepath
-    original_format = scene.render.image_settings.file_format
+    orig_filepath = scene.render.filepath
+    orig_format = scene.render.image_settings.file_format
+    orig_quality = scene.render.image_settings.quality
 
-    tmp_path = os.path.join(tempfile.gettempdir(), "quviai_viewport.png")
-    scene.render.filepath = tmp_path
-    scene.render.image_settings.file_format = "PNG"
+    tmp_capture = os.path.join(tempfile.gettempdir(), "quviai_capture.webp")
+    scene.render.filepath = tmp_capture
+    scene.render.image_settings.file_format = "WEBP"
+    scene.render.image_settings.quality = 90
 
     try:
         bpy.ops.render.opengl(write_still=True)
-        return Path(tmp_path).read_bytes()
     finally:
-        scene.render.filepath = original_filepath
-        scene.render.image_settings.file_format = original_format
+        scene.render.filepath = orig_filepath
+        scene.render.image_settings.file_format = orig_format
+        scene.render.image_settings.quality = orig_quality
 
-
-def process_for_upload(raw_bytes: bytes, context: bpy.types.Context, max_size: int = 2048) -> bytes:
-    """Resize so longest edge <= max_size and convert to WebP. Must run in main thread."""
-    tmp_png = os.path.join(tempfile.gettempdir(), "quviai_raw.png")
-    tmp_webp = os.path.join(tempfile.gettempdir(), "quviai_upload.webp")
-    Path(tmp_png).write_bytes(raw_bytes)
-
-    img = bpy.data.images.load(tmp_png, check_existing=False)
-    img.name = "_quviai_upload_tmp"
+    img = bpy.data.images.load(tmp_capture, check_existing=False)
+    img.name = "_quviai_capture_tmp"
     try:
         w, h = img.size
+        max_size = 2048
         if w > max_size or h > max_size:
             if w >= h:
-                new_w = max_size
-                new_h = max(1, round(h * max_size / w))
+                new_w, new_h = max_size, max(1, round(h * max_size / w))
             else:
-                new_h = max_size
-                new_w = max(1, round(w * max_size / h))
+                new_h, new_w = max_size, max(1, round(w * max_size / h))
             img.scale(new_w, new_h)
 
-        scene = context.scene
-        orig_format = scene.render.image_settings.file_format
-        orig_quality = scene.render.image_settings.quality
+        tmp_webp = os.path.join(tempfile.gettempdir(), "quviai_upload.webp")
         scene.render.image_settings.file_format = "WEBP"
         scene.render.image_settings.quality = 90
         try:
@@ -67,7 +61,7 @@ def process_for_upload(raw_bytes: bytes, context: bpy.types.Context, max_size: i
             scene.render.image_settings.file_format = orig_format
             scene.render.image_settings.quality = orig_quality
 
-        return Path(tmp_webp).read_bytes()
+        return base64.b64encode(Path(tmp_webp).read_bytes()).decode()
     finally:
         bpy.data.images.remove(img)
 

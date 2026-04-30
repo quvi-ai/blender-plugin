@@ -344,7 +344,9 @@ class QuviClient:
     def _encode(image: str | Path | bytes) -> str:
         if isinstance(image, bytes):
             return bytes_to_base64(image)
-        return image_to_base64(image)
+        if isinstance(image, Path) or Path(image).is_file():
+            return image_to_base64(image)
+        return str(image)  # already a base64-encoded string
 
     @staticmethod
     def _parse_result(task_id: str, result: dict) -> GenerateResult:
