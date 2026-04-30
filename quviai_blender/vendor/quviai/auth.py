@@ -1,19 +1,26 @@
 from __future__ import annotations
 
-import os
 
+class JWTAuth:
+    """JWT Bearer token authentication with automatic refresh support."""
 
-class APIKeyAuth:
-    """Provides the X-API-Key header required by the QUVIAI API."""
+    def __init__(self, access_token: str, refresh_token: str | None = None) -> None:
+        self._access = access_token
+        self._refresh = refresh_token
 
-    def __init__(self, api_key: str | None = None) -> None:
-        key = api_key or os.environ.get("QUVI_API_KEY")
-        if not key:
-            raise ValueError(
-                "API key is required. Pass api_key= to QuviClient or set the "
-                "QUVI_API_KEY environment variable."
-            )
-        self._key = key
+    @property
+    def access_token(self) -> str:
+        return self._access
+
+    @property
+    def refresh_token(self) -> str | None:
+        return self._refresh
 
     def headers(self) -> dict[str, str]:
-        return {"X-API-Key": self._key}
+        return {"Authorization": f"Bearer {self._access}"}
+
+    def update(self, access: str, refresh: str | None = None) -> None:
+        """Update stored tokens after a refresh or re-login."""
+        self._access = access
+        if refresh:
+            self._refresh = refresh

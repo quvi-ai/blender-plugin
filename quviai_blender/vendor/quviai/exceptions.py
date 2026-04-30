@@ -10,7 +10,15 @@ class QuviError(Exception):
 
 
 class AuthError(QuviError):
-    """Raised on 401 (missing credentials) or 403 (invalid credentials)."""
+    """Raised on 401/403 — invalid or expired credentials."""
+
+
+class LoginError(QuviError):
+    """Raised when login fails (wrong password, inactive account, etc.)."""
+
+
+class TokenExpiredError(AuthError):
+    """Raised when the access token is expired and refresh also failed."""
 
 
 class RateLimitError(QuviError):
@@ -27,11 +35,11 @@ class ContentModerationError(QuviError):
 
 
 class InsufficientCreditsError(QuviError):
-    """Raised when the account has insufficient credits for the requested operation."""
+    """Raised when the account has insufficient credits."""
 
 
 class TaskFailedError(QuviError):
-    """Raised when the generation task finishes with status 'failed'."""
+    """Raised when a generation task finishes with status 'failed'."""
 
     def __init__(self, message: str, task_id: str = "") -> None:
         super().__init__(message)
@@ -39,7 +47,7 @@ class TaskFailedError(QuviError):
 
 
 class TaskTimeoutError(QuviError):
-    """Raised when polling exceeds the configured timeout without task completion."""
+    """Raised when polling exceeds the configured timeout."""
 
     def __init__(self, task_id: str, timeout: int) -> None:
         super().__init__(f"Task {task_id} did not complete within {timeout}s")
@@ -48,7 +56,7 @@ class TaskTimeoutError(QuviError):
 
 
 class TaskNotFoundError(QuviError):
-    """Raised on 404 — task not found, likely expired (results kept for 15 minutes)."""
+    """Raised on 404 — task not found (results kept ~15 minutes after completion)."""
 
     def __init__(self, message: str = "", task_id: str = "") -> None:
         super().__init__(message or "Task not found (may have expired)", status_code=404)

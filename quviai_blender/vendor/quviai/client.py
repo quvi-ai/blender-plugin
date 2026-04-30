@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Callable
 
-from .auth import APIKeyAuth
-from .exceptions import QuviError
+from .auth import JWTAuth
+from .exceptions import AuthError, LoginError, QuviError
 from .http import BASE_URL, HTTPClient
-from .models import GenerateResult, TaskStatus
+from .models import GenerateResult, TaskStatus, UserInfo
 from .polling import JobPoller
 from .utils import base64_to_bytes, bytes_to_base64, image_to_base64, normalize_result
 
@@ -14,79 +17,284 @@ from .utils import base64_to_bytes, bytes_to_base64, image_to_base64, normalize_
 class QuviClient:
     """Official QUVIAI Python SDK client.
 
-    Usage::
+    Do not instantiate directly — use the class-method constructors::
 
-        client = QuviClient(api_key="quvi_...")
+        # Email / password
+        client = QuviClient.login("you@example.com", "password")
 
-        # Submit + wait (blocking)
-        result = client.generate_from_image("shot.png", h_angle=63, v_angle=29, zoom=5.0)
-        image_bytes = client.download_result(result)
+        # Existing tokens (e.g. stored from a previous session)
+        client = QuviClient.from_tokens(access_token, refresh_token)
 
-        # Or: submit now, poll later
-        task_id = client.submit_image("shot.png", h_angle=45, v_angle=30, zoom=4.0)
-        result = client.poll_task(task_id)
+        # Google OAuth (exchange server-auth-code obtained externally)
+        client = QuviClient.login_with_google(auth_code, redirect_uri)
+
+        # Apple Sign In
+        client = QuviClient.login_with_apple(identity_token=token)
     """
 
     def __init__(
         self,
-        api_key: str | None = None,
+        *,
+        auth: JWTAuth,
         base_url: str = BASE_URL,
         timeout: int = 30,
         poll_interval: float = 3.0,
         poll_timeout: float = 120.0,
     ) -> None:
-        auth = APIKeyAuth(api_key)
-        self._http = HTTPClient(
-            auth_headers=auth.headers(),
-            base_url=base_url,
-            timeout=timeout,
-        )
+        self._auth = auth
+        self._http = HTTPClient(auth=auth, base_url=base_url, timeout=timeout)
         self._poll_interval = poll_interval
         self._poll_timeout = poll_timeout
 
     # ------------------------------------------------------------------
-    # High-level API
+    # Auth: class-method constructors
     # ------------------------------------------------------------------
 
-    def generate_from_image(
+    @classmethod
+    def login(
+        cls,
+        email: str,
+        password: str,
+        base_url: str = BASE_URL,
+        **kwargs,
+    ) -> "QuviClient":
+        """Log in with email and password, return an authenticated client."""
+        data = cls._unauthenticated_post(
+            f"{base_url.rstrip('/')}/auth/jwt/create/",
+            {"email": email, "password": password},
+        )
+        auth = JWTAuth(
+            access_token=data["access"],
+            refresh_token=data.get("refresh"),
+        )
+        return cls(auth=auth, base_url=base_url, **kwargs)
+
+    @classmethod
+    def from_tokens(
+        cls,
+        access_token: str,
+        refresh_token: str | None = None,
+        base_url: str = BASE_URL,
+        **kwargs,
+    ) -> "QuviClient":
+        """Create a client from previously stored JWT tokens."""
+        auth = JWTAuth(access_token=access_token, refresh_token=refresh_token)
+        return cls(auth=auth, base_url=base_url, **kwargs)
+
+    @classmethod
+    def login_with_google(
+        cls,
+        auth_code: str,
+        redirect_uri: str,
+        client_type: str = "android",
+        base_url: str = BASE_URL,
+        **kwargs,
+    ) -> "QuviClient":
+        """Exchange a Google serverAuthCode for QUVIAI JWT tokens.
+
+        The ``auth_code`` must be obtained from the Google Sign-In SDK (mobile)
+        or from a standard OAuth2 browser flow (desktop). ``redirect_uri`` must
+        match exactly what was used when initiating the OAuth flow.
+        """
+        data = cls._unauthenticated_post(
+            f"{base_url.rstrip('/')}/api/auth/google/native/",
+            {"code": auth_code, "redirect_uri": redirect_uri, "client_type": client_type},
+        )
+        auth = JWTAuth(
+            access_token=data["access"],
+            refresh_token=data.get("refresh"),
+        )
+        return cls(auth=auth, base_url=base_url, **kwargs)
+
+    @classmethod
+    def login_with_apple(
+        cls,
+        identity_token: str | None = None,
+        authorization_code: str | None = None,
+        base_url: str = BASE_URL,
+        **kwargs,
+    ) -> "QuviClient":
+        """Exchange an Apple Sign In token for QUVIAI JWT tokens.
+
+        Pass ``identity_token`` for iOS native flows, or ``authorization_code``
+        for web/Android flows. Exactly one must be provided.
+        """
+        if not identity_token and not authorization_code:
+            raise ValueError("Provide either identity_token (iOS) or authorization_code (web/Android).")
+        body: dict = {}
+        if identity_token:
+            body["identity_token"] = identity_token
+        if authorization_code:
+            body["authorization_code"] = authorization_code
+        data = cls._unauthenticated_post(
+            f"{base_url.rstrip('/')}/api/auth/apple/native/",
+            body,
+        )
+        auth = JWTAuth(
+            access_token=data["access"],
+            refresh_token=data.get("refresh"),
+        )
+        return cls(auth=auth, base_url=base_url, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Token access (for persistence between sessions)
+    # ------------------------------------------------------------------
+
+    @property
+    def access_token(self) -> str:
+        return self._auth.access_token
+
+    @property
+    def refresh_token(self) -> str | None:
+        return self._auth.refresh_token
+
+    # ------------------------------------------------------------------
+    # Generation endpoints
+    # ------------------------------------------------------------------
+
+    def render_3d(
         self,
-        image: str | Path | bytes,
-        h_angle: int = 63,
-        v_angle: int = 29,
-        zoom: float = 5.0,
+        prompt: str,
+        style: str = "no style",
+        day_time: str | None = None,
+        weather: str | None = None,
+        render_type: str | None = None,
+        image: str | Path | bytes | None = None,
+        ref_image: str | Path | bytes | None = None,
         on_status: Callable[[TaskStatus], None] | None = None,
     ) -> GenerateResult:
-        """Submit an image and block until the AI render is ready.
+        """Submit a 3D render request and block until complete.
 
         Args:
-            image: File path (str/Path) or raw PNG bytes.
-            h_angle: Horizontal camera angle (0–360).
-            v_angle: Vertical camera angle (-90–90).
-            zoom: Zoom level (float, typically 1.0–20.0).
-            on_status: Optional callback invoked on each poll with a TaskStatus.
+            prompt: Text description of the scene to render.
+            style: Architectural/artistic style (e.g. "Modern", "Art Deco").
+            day_time: "day" or "night".
+            weather: "sunny", "cloudy", "rainy", "snowy", "windy", or "foggy".
+            render_type: "site", "exterior", "interior", or other.
+            image: Optional canvas/reference image (path or bytes).
+            ref_image: Optional secondary reference image.
+            on_status: Callback invoked on each poll with a TaskStatus.
 
         Returns:
             GenerateResult with either ``url`` or ``image_data`` populated.
         """
-        task_id = self.submit_image(image, h_angle=h_angle, v_angle=v_angle, zoom=zoom)
+        task_id = self.submit_render_3d(
+            prompt=prompt,
+            style=style,
+            day_time=day_time,
+            weather=weather,
+            render_type=render_type,
+            image=image,
+            ref_image=ref_image,
+        )
         return self.poll_task(task_id, on_status=on_status)
 
-    def submit_image(
+    def submit_render_3d(
+        self,
+        prompt: str,
+        style: str = "no style",
+        day_time: str | None = None,
+        weather: str | None = None,
+        render_type: str | None = None,
+        image: str | Path | bytes | None = None,
+        ref_image: str | Path | bytes | None = None,
+    ) -> str:
+        """Submit a 3D render and return the task_id without waiting."""
+        body: dict = {"prompt": prompt, "style": style}
+        if day_time:
+            body["dayTime"] = day_time
+        if weather:
+            body["weather"] = weather
+        if render_type:
+            body["renderType"] = render_type
+        if image is not None:
+            body["image"] = self._encode(image)
+        if ref_image is not None:
+            body["ref_image"] = self._encode(ref_image)
+        resp = self._http.post("/api/render-td/", body)
+        return resp["task_id"]
+
+    def generate_canvas(
         self,
         image: str | Path | bytes,
-        h_angle: int = 63,
-        v_angle: int = 29,
-        zoom: float = 5.0,
+        prompt: str = "",
+        is_sketch: bool = False,
+        on_status: Callable[[TaskStatus], None] | None = None,
+    ) -> GenerateResult:
+        """Submit a canvas image for AI generation/editing and block until complete.
+
+        Args:
+            image: The canvas image to use as input (path or bytes).
+            prompt: Optional text prompt to guide the generation.
+            is_sketch: If True, treats the image as a sketch and recomposes it.
+            on_status: Callback invoked on each poll with a TaskStatus.
+
+        Returns:
+            GenerateResult with either ``url`` or ``image_data`` populated.
+        """
+        task_id = self.submit_canvas(image=image, prompt=prompt, is_sketch=is_sketch)
+        return self.poll_task(task_id, on_status=on_status)
+
+    def submit_canvas(
+        self,
+        image: str | Path | bytes,
+        prompt: str = "",
+        is_sketch: bool = False,
     ) -> str:
-        """Submit an image for rendering and return the task_id immediately."""
-        b64 = self._encode(image)
-        response = self._http.post("/api/multi-angle/", {
-            "image": b64,
-            "hAngle": h_angle,
-            "vAngle": v_angle,
-            "zoom": zoom,
+        """Submit a canvas generation and return the task_id without waiting."""
+        body: dict = {
+            "image": self._encode(image),
+            "prompt": prompt,
+            "isSketch": 1 if is_sketch else 0,
+        }
+        resp = self._http.post("/api/generate-canvas-react/", body)
+        return resp["task_id"]
+
+    def generate_image(
+        self,
+        prompt: str,
+        style: str = "no style",
+        width: int = 1024,
+        height: int = 1024,
+        on_status: Callable[[TaskStatus], None] | None = None,
+    ) -> GenerateResult:
+        """Generate an image from a text prompt and block until complete."""
+        task_id = self.submit_generate_image(prompt=prompt, style=style, width=width, height=height)
+        return self.poll_task(task_id, on_status=on_status)
+
+    def submit_generate_image(
+        self,
+        prompt: str,
+        style: str = "no style",
+        width: int = 1024,
+        height: int = 1024,
+    ) -> str:
+        """Submit a text-to-image request and return the task_id without waiting."""
+        resp = self._http.post("/api/generate-image/", {
+            "prompt": prompt,
+            "style": style,
+            "width": width,
+            "height": height,
         })
-        return response["task_id"]
+        return resp["task_id"]
+
+    def remove_background(
+        self,
+        image: str | Path | bytes,
+        on_status: Callable[[TaskStatus], None] | None = None,
+    ) -> GenerateResult:
+        """Remove the background from an image (free operation)."""
+        task_id = self.submit_remove_background(image)
+        return self.poll_task(task_id, on_status=on_status)
+
+    def submit_remove_background(self, image: str | Path | bytes) -> str:
+        """Submit a background-removal request and return the task_id."""
+        resp = self._http.post("/api/remove-background/", {"image": self._encode(image)})
+        return resp["task_id"]
+
+    # ------------------------------------------------------------------
+    # Polling & downloading
+    # ------------------------------------------------------------------
 
     def poll_task(
         self,
@@ -106,8 +314,8 @@ class QuviClient:
     def download_result(self, result: GenerateResult) -> bytes:
         """Return raw image bytes from a GenerateResult.
 
-        If image_data is already present (base64 response), returns it directly.
-        If only url is present (S3 URL), fetches and returns the bytes.
+        Returns ``image_data`` directly if already present (base64 response),
+        otherwise fetches from the S3 URL.
         """
         if result.image_data is not None:
             return result.image_data
@@ -134,3 +342,28 @@ class QuviClient:
         if first.startswith(("http://", "https://")):
             return GenerateResult(task_id=task_id, url=first)
         return GenerateResult(task_id=task_id, image_data=base64_to_bytes(first))
+
+    @staticmethod
+    def _unauthenticated_post(url: str, body: dict) -> dict:
+        """POST without auth headers — used only for login endpoints."""
+        data = json.dumps(body).encode()
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            try:
+                error_body = json.loads(exc.read())
+            except Exception:
+                error_body = {}
+            detail = (
+                error_body.get("detail")
+                or error_body.get("error")
+                or error_body.get("non_field_errors", ["Login failed"])[0]
+            )
+            raise LoginError(str(detail), status_code=exc.code) from exc

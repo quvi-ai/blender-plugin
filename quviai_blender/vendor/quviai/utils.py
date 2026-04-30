@@ -22,9 +22,9 @@ def base64_to_bytes(b64: str) -> bytes:
 
 
 def normalize_result(result: dict) -> list[str]:
-    """Return the list of output URLs or base64 strings from a completed task result.
+    """Return the list of output URLs or base64 strings from a completed task.
 
-    The API inconsistently uses 'urls' or 'images' depending on task type.
+    The API uses 'urls' or 'images' inconsistently depending on task type.
     """
     if not result:
         return []

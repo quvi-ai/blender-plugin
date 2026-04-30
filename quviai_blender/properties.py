@@ -8,31 +8,20 @@ from bpy.types import PropertyGroup
 class QuviAIProperties(PropertyGroup):
     """Per-scene QUVIAI state, stored in scene.quviai."""
 
-    h_angle: IntProperty(
-        name="Horizontal Angle",
-        description="Horizontal camera angle sent to the AI renderer (0–360°)",
-        default=63,
-        min=0,
-        max=360,
+    # --- Canvas render settings ---
+    prompt: StringProperty(
+        name="Prompt",
+        description="Optional text prompt to guide the AI render",
+        default="",
     )  # type: ignore[assignment]
 
-    v_angle: IntProperty(
-        name="Vertical Angle",
-        description="Vertical camera angle sent to the AI renderer (-90–90°)",
-        default=29,
-        min=-90,
-        max=90,
+    is_sketch: BoolProperty(
+        name="Sketch Mode",
+        description="Treat the viewport screenshot as a sketch and recompose it",
+        default=False,
     )  # type: ignore[assignment]
 
-    zoom: FloatProperty(
-        name="Zoom",
-        description="Camera zoom level sent to the AI renderer",
-        default=5.0,
-        min=1.0,
-        max=20.0,
-        step=10,
-    )  # type: ignore[assignment]
-
+    # --- Task state ---
     is_rendering: BoolProperty(
         name="Is Rendering",
         default=False,
