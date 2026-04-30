@@ -19,30 +19,32 @@ def ensure_vendor_in_path() -> None:
 def capture_viewport(context: bpy.types.Context) -> str:
     """Capture the active 3D Viewport and return a base64-encoded WebP string.
 
-    Renders to the internal buffer (no capture file on disk), copies pixels
-    into a temporary image, scales so the longest edge is at most 2048 px,
-    writes one WebP file, reads it, deletes it, and returns the base64 string.
+    Renders directly to WebP so only one temp file is ever written. If the
+    image exceeds 2048 px on either edge it is scaled down and the file is
+    overwritten before reading. The temp file is deleted after the read.
     Must be called from the main thread.
     """
-    import numpy as np  # always available in Blender 4+
+    scene = context.scene
+    tmp_path = os.path.join(tempfile.gettempdir(), "quviai_upload.webp")
 
-    # Render viewport into Blender's render buffer — no file is written
-    bpy.ops.render.opengl(write_still=False)
+    orig_filepath = scene.render.filepath
+    orig_format = scene.render.image_settings.file_format
+    orig_quality = scene.render.image_settings.quality
+    scene.render.filepath = tmp_path
+    scene.render.image_settings.file_format = "WEBP"
+    scene.render.image_settings.quality = 90
 
-    src = bpy.data.images.get("Render Result")
-    if not src or src.size[0] == 0:
-        raise RuntimeError("Viewport render produced no result")
-
-    w, h = src.size
-
-    # Read pixels from Render Result into a numpy array (fast path)
-    pixels = np.empty(w * h * 4, dtype=np.float32)
-    src.pixels.foreach_get(pixels)
-
-    # Copy into an editable image so we can scale without touching Render Result
-    img = bpy.data.images.new("_quviai_upload_tmp", width=w, height=h)
-    img.pixels.foreach_set(pixels)
     try:
+        bpy.ops.render.opengl(write_still=True)
+    finally:
+        scene.render.filepath = orig_filepath
+        scene.render.image_settings.file_format = orig_format
+        scene.render.image_settings.quality = orig_quality
+
+    img = bpy.data.images.load(tmp_path, check_existing=False)
+    img.name = "_quviai_upload_tmp"
+    try:
+        w, h = img.size
         max_size = 2048
         if w > max_size or h > max_size:
             if w >= h:
@@ -50,25 +52,19 @@ def capture_viewport(context: bpy.types.Context) -> str:
             else:
                 new_h, new_w = max_size, max(1, round(w * max_size / h))
             img.scale(new_w, new_h)
+            scene.render.image_settings.file_format = "WEBP"
+            scene.render.image_settings.quality = 90
+            try:
+                img.save_render(tmp_path, scene=scene)
+            finally:
+                scene.render.image_settings.file_format = orig_format
+                scene.render.image_settings.quality = orig_quality
 
-        scene = context.scene
-        orig_format = scene.render.image_settings.file_format
-        orig_quality = scene.render.image_settings.quality
-        scene.render.image_settings.file_format = "WEBP"
-        scene.render.image_settings.quality = 90
-
-        tmp_webp = os.path.join(tempfile.gettempdir(), "quviai_upload.webp")
-        try:
-            img.save_render(tmp_webp, scene=scene)
-        finally:
-            scene.render.image_settings.file_format = orig_format
-            scene.render.image_settings.quality = orig_quality
-
-        data = Path(tmp_webp).read_bytes()
-        Path(tmp_webp).unlink(missing_ok=True)
+        data = Path(tmp_path).read_bytes()
         return base64.b64encode(data).decode()
     finally:
         bpy.data.images.remove(img)
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 def load_image_into_blender(name: str, image_bytes: bytes) -> bpy.types.Image:
