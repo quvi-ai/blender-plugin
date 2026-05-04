@@ -6,6 +6,22 @@ from bpy.types import Panel
 from .utils import get_preferences
 
 
+def _draw_wrapped(layout, text: str, char_width: int = 28) -> None:
+    """Render `text` as word-wrapped label rows inside `layout`."""
+    words = text.split()
+    line = ""
+    for word in words:
+        candidate = (line + " " + word).strip()
+        if len(candidate) <= char_width:
+            line = candidate
+        else:
+            if line:
+                layout.label(text=line)
+            line = word
+    if line:
+        layout.label(text=line)
+
+
 class QUVIAI_PT_main(Panel):
     bl_label = "QUVIAI Render"
     bl_idname = "QUVIAI_PT_main"
@@ -44,9 +60,12 @@ class QUVIAI_PT_main(Panel):
 
         layout.separator(factor=0.5)
         layout.label(text="Prompt")
-        prompt_col = layout.column(align=True)
-        prompt_col.scale_y = 2.5
-        prompt_col.prop(props, "prompt", text="")
+        box = layout.box()
+        if props.prompt:
+            _draw_wrapped(box, props.prompt)
+        else:
+            box.label(text="Enter a prompt…", icon="INFO")
+        layout.prop(props, "prompt", text="")
 
         # --- Architectural-only controls ---
         if props.style_category == "architectural":
