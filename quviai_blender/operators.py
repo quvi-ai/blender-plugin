@@ -648,7 +648,20 @@ class QUVIAI_OT_generate_object(Operator):
             tmp_path = os.path.join(tempfile.gettempdir(), "quviai_object.glb")
             try:
                 Path(tmp_path).write_bytes(glb_bytes)
-                bpy.ops.import_scene.gltf(filepath=tmp_path)
+                # Find a VIEW_3D area for a valid operator context (required in Blender 4.x)
+                ctx_window = ctx_area = None
+                for window in bpy.context.window_manager.windows:
+                    for area in window.screen.areas:
+                        if area.type == "VIEW_3D":
+                            ctx_window, ctx_area = window, area
+                            break
+                    if ctx_area:
+                        break
+                if ctx_area:
+                    with bpy.context.temp_override(window=ctx_window, area=ctx_area):
+                        bpy.ops.import_scene.gltf(filepath=tmp_path)
+                else:
+                    bpy.ops.import_scene.gltf(filepath=tmp_path)
                 props.obj_status = "Done — object imported into scene."
             except Exception as exc:
                 props.obj_status = f"Error importing GLB: {exc}"
