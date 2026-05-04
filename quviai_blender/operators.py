@@ -14,7 +14,6 @@ from .utils import (
     get_preferences,
     load_image_into_blender,
     open_in_image_editor,
-    open_in_text_editor,
 )
 
 RESULT_IMAGE_NAME = "QUVIAI_Result.png"
@@ -249,24 +248,23 @@ class QUVIAI_OT_refresh_credits(Operator):
 # ---------------------------------------------------------------------------
 
 class QUVIAI_OT_edit_prompt(Operator):
-    """Open the prompt text block in Blender's Text Editor"""
+    """Edit the render prompt in a popup dialog"""
 
     bl_idname = "quviai.edit_prompt"
     bl_label = "Edit Prompt"
-    bl_options = {"REGISTER"}
+    bl_options = {"REGISTER", "UNDO"}
+
+    prompt: bpy.props.StringProperty(name="Prompt", default="")  # type: ignore[assignment]
+
+    def invoke(self, context: bpy.types.Context, event):
+        self.prompt = context.scene.quviai.prompt
+        return context.window_manager.invoke_props_dialog(self, width=600)
+
+    def draw(self, context: bpy.types.Context) -> None:
+        self.layout.prop(self, "prompt", text="")
 
     def execute(self, context: bpy.types.Context):
-        props = context.scene.quviai
-
-        if props.prompt_text is None:
-            text = bpy.data.texts.new("QUVIAI Prompt")
-            props.prompt_text = text
-        else:
-            text = props.prompt_text
-
-        found = open_in_text_editor(context, text)
-        if not found:
-            self.report({"INFO"}, "Open a Text Editor area to edit the prompt.")
+        context.scene.quviai.prompt = self.prompt
         return {"FINISHED"}
 
 
@@ -299,8 +297,6 @@ class QUVIAI_OT_render(Operator):
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
 
-        prompt = props.prompt_text.as_string().strip() if props.prompt_text else ""
-
         if props.style_category == "architectural":
             style_id = props.arch_style
             render_type = props.render_type
@@ -313,7 +309,7 @@ class QUVIAI_OT_render(Operator):
             weather     = None
 
         params = {
-            "prompt":      prompt,
+            "prompt":      props.prompt,
             "style":       STYLE_TO_API.get(style_id, "no style"),
             "render_type": render_type,
             "day_time":    day_time,

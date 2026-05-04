@@ -6,6 +6,20 @@ from bpy.types import Panel
 from .utils import get_preferences
 
 
+def _draw_wrapped(layout, text: str, char_width: int = 28) -> None:
+    words = text.split()
+    line = ""
+    for word in words:
+        candidate = (line + " " + word).strip()
+        if len(candidate) <= char_width:
+            line = candidate
+        else:
+            if line:
+                layout.label(text=line)
+            line = word
+    if line:
+        layout.label(text=line)
+
 
 class QUVIAI_PT_main(Panel):
     bl_label = "QUVIAI Render"
@@ -43,10 +57,15 @@ class QUVIAI_PT_main(Panel):
         else:
             col.prop(props, "general_style", text="Style")
 
+        # --- Prompt ---
         layout.separator(factor=0.5)
         layout.label(text="Prompt")
-        layout.template_ID(props, "prompt_text", new="text.new")
-        layout.operator("quviai.edit_prompt", text="Edit Prompt", icon="TEXT")
+        box = layout.box()
+        if props.prompt:
+            _draw_wrapped(box, props.prompt)
+        else:
+            box.label(text="(empty — click Edit to add)", icon="INFO")
+        layout.operator("quviai.edit_prompt", text="Edit Prompt", icon="GREASEPENCIL")
 
         # --- Architectural-only controls ---
         if props.style_category == "architectural":

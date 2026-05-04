@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from bpy.types import PropertyGroup
 
 # (blender_id, display_name, api_value)
@@ -127,11 +127,10 @@ class QuviAIProperties(PropertyGroup):
         default="no_style",
     )  # type: ignore[assignment]
 
-    # --- Prompt (stored as a Blender Text block for multiline editing) ---
-    prompt_text: PointerProperty(
+    prompt: StringProperty(
         name="Prompt",
-        description="Text block containing the render prompt (edit in Text Editor)",
-        type=bpy.types.Text,
+        description="Text prompt describing the desired render",
+        default="",
     )  # type: ignore[assignment]
 
     render_type: EnumProperty(
