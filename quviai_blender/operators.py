@@ -347,6 +347,10 @@ class QUVIAI_OT_render(Operator):
                     lambda: self._save_tokens(prefs, client.access_token, client.refresh_token)
                 )
 
+            if client._last_credit is not None:
+                new_credit = client._last_credit
+                bpy.app.timers.register(lambda: _set_credits(prefs, new_credit))
+
             final_bytes = client.download_result(result)
             bpy.app.timers.register(lambda: self._finish(props, image_bytes=final_bytes))
 

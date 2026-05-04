@@ -25,10 +25,11 @@ class QUVIAI_PT_main(Panel):
             return
 
         # --- Credits ---
-        cred_row = layout.row()
+        cred_row = layout.row(align=True)
         cred_label = f"Credits: {prefs.credits}" if prefs.credits >= 0 else "Credits: —"
         cred_row.label(text=cred_label, icon="FUND")
         cred_row.operator("quviai.refresh_credits", text="", icon="FILE_REFRESH")
+        cred_row.operator("wm.url_open", text="", icon="URL").url = "https://quvi.ai/pricing"
 
         layout.separator()
 

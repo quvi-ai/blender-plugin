@@ -45,6 +45,7 @@ class QuviClient:
         self._http = HTTPClient(auth=auth, base_url=base_url, timeout=timeout)
         self._poll_interval = poll_interval
         self._poll_timeout = poll_timeout
+        self._last_credit: int | None = None  # updated from API responses
 
     # ------------------------------------------------------------------
     # Auth: class-method constructors
@@ -225,6 +226,8 @@ class QuviClient:
         if ref_image is not None:
             body["ref_image"] = self._encode(ref_image)
         resp = self._http.post("/api/render-td/", body)
+        if resp.get("credit") is not None:
+            self._last_credit = int(resp["credit"])
         return resp["task_id"]
 
     def generate_canvas(
