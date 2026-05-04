@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, PointerProperty, StringProperty
 from bpy.types import PropertyGroup
 
 # (blender_id, display_name, api_value)
@@ -98,13 +98,6 @@ STYLE_TO_API: dict[str, str] = {s[0]: s[2] for s in _GENERAL_STYLES}
 STYLE_TO_API.update({s[0]: s[2] for s in _ARCH_STYLES})
 
 
-def _redraw_view3d(self, context) -> None:  # noqa: ANN001
-    for window in context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.type == "VIEW_3D":
-                area.tag_redraw()
-
-
 class QuviAIProperties(PropertyGroup):
     """Per-scene QUVIAI state, stored in scene.quviai."""
 
@@ -134,12 +127,11 @@ class QuviAIProperties(PropertyGroup):
         default="no_style",
     )  # type: ignore[assignment]
 
-    # --- Render-TD parameters (architectural only) ---
-    prompt: StringProperty(
+    # --- Prompt (stored as a Blender Text block for multiline editing) ---
+    prompt_text: PointerProperty(
         name="Prompt",
-        description="Text prompt describing the desired render",
-        default="",
-        update=_redraw_view3d,
+        description="Text block containing the render prompt (edit in Text Editor)",
+        type=bpy.types.Text,
     )  # type: ignore[assignment]
 
     render_type: EnumProperty(

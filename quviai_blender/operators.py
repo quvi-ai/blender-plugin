@@ -14,6 +14,7 @@ from .utils import (
     get_preferences,
     load_image_into_blender,
     open_in_image_editor,
+    open_in_text_editor,
 )
 
 RESULT_IMAGE_NAME = "QUVIAI_Result.png"
@@ -244,6 +245,32 @@ class QUVIAI_OT_refresh_credits(Operator):
 
 
 # ---------------------------------------------------------------------------
+# Prompt editor operator
+# ---------------------------------------------------------------------------
+
+class QUVIAI_OT_edit_prompt(Operator):
+    """Open the prompt text block in Blender's Text Editor"""
+
+    bl_idname = "quviai.edit_prompt"
+    bl_label = "Edit Prompt"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context: bpy.types.Context):
+        props = context.scene.quviai
+
+        if props.prompt_text is None:
+            text = bpy.data.texts.new("QUVIAI Prompt")
+            props.prompt_text = text
+        else:
+            text = props.prompt_text
+
+        found = open_in_text_editor(context, text)
+        if not found:
+            self.report({"INFO"}, "Open a Text Editor area to edit the prompt.")
+        return {"FINISHED"}
+
+
+# ---------------------------------------------------------------------------
 # Render operators
 # ---------------------------------------------------------------------------
 
@@ -272,6 +299,8 @@ class QUVIAI_OT_render(Operator):
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
 
+        prompt = props.prompt_text.as_string().strip() if props.prompt_text else ""
+
         if props.style_category == "architectural":
             style_id = props.arch_style
             render_type = props.render_type
@@ -284,7 +313,7 @@ class QUVIAI_OT_render(Operator):
             weather     = None
 
         params = {
-            "prompt":      props.prompt,
+            "prompt":      prompt,
             "style":       STYLE_TO_API.get(style_id, "no style"),
             "render_type": render_type,
             "day_time":    day_time,
@@ -475,6 +504,7 @@ def register() -> None:
     bpy.utils.register_class(QUVIAI_OT_login_google)
     bpy.utils.register_class(QUVIAI_OT_logout)
     bpy.utils.register_class(QUVIAI_OT_refresh_credits)
+    bpy.utils.register_class(QUVIAI_OT_edit_prompt)
     bpy.utils.register_class(QUVIAI_OT_render)
     bpy.utils.register_class(QUVIAI_OT_open_result)
 
@@ -482,6 +512,7 @@ def register() -> None:
 def unregister() -> None:
     bpy.utils.unregister_class(QUVIAI_OT_open_result)
     bpy.utils.unregister_class(QUVIAI_OT_render)
+    bpy.utils.unregister_class(QUVIAI_OT_edit_prompt)
     bpy.utils.unregister_class(QUVIAI_OT_refresh_credits)
     bpy.utils.unregister_class(QUVIAI_OT_logout)
     bpy.utils.unregister_class(QUVIAI_OT_login_google)

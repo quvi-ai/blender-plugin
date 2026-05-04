@@ -89,6 +89,28 @@ def get_preferences(context: bpy.types.Context):
     return context.preferences.addons[__package__].preferences
 
 
+def open_in_text_editor(context: bpy.types.Context, text: bpy.types.Text) -> bool:
+    """Show the text block in a Text Editor, converting a utility area if needed."""
+    for area in context.screen.areas:
+        if area.type == "TEXT_EDITOR":
+            area.spaces.active.text = text
+            return True
+
+    candidate = None
+    for area in context.screen.areas:
+        if area.type in ("OUTLINER", "PROPERTIES", "CONSOLE", "INFO"):
+            size = area.width * area.height
+            if candidate is None or size < candidate.width * candidate.height:
+                candidate = area
+
+    if candidate is not None:
+        candidate.type = "TEXT_EDITOR"
+        candidate.spaces.active.text = text
+        return True
+
+    return False
+
+
 def open_in_image_editor(context: bpy.types.Context, image: bpy.types.Image) -> bool:
     """Show the image in an Image Editor, converting a utility area if needed.
 
