@@ -95,7 +95,7 @@ class QuviAIProperties(PropertyGroup):
             ("interior", "Interior", "Interior architectural render"),
             ("site",     "Site",     "Site plan aerial view"),
         ],
-        default="NONE",
+        default="exterior",
     )  # type: ignore[assignment]
 
     day_time: EnumProperty(
@@ -106,7 +106,7 @@ class QuviAIProperties(PropertyGroup):
             ("day",   "Day",   "Noon natural sunlight"),
             ("night", "Night", "Night artificial lighting"),
         ],
-        default="NONE",
+        default="day",
     )  # type: ignore[assignment]
 
     weather: EnumProperty(
@@ -121,7 +121,7 @@ class QuviAIProperties(PropertyGroup):
             ("windy",  "Windy",  ""),
             ("foggy",  "Foggy",  ""),
         ],
-        default="NONE",
+        default="sunny",
     )  # type: ignore[assignment]
 
     # --- Task state ---

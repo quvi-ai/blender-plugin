@@ -37,7 +37,7 @@ class QuviClient:
         *,
         auth: JWTAuth,
         base_url: str = BASE_URL,
-        timeout: int = 30,
+        timeout: int = 120,
         poll_interval: float = 3.0,
         poll_timeout: float = 120.0,
     ) -> None:
@@ -323,6 +323,17 @@ class QuviClient:
         )
         result = poller.poll(task_id)
         return self._parse_result(task_id, result)
+
+    def get_user_data(self) -> dict:
+        """Fetch current user data including credit balance from /api/user-data/."""
+        return self._http.get("/api/user-data/")
+
+    def get_credits(self) -> int:
+        """Return the current credit balance, or -1 on failure."""
+        try:
+            return int(self.get_user_data().get("credit", -1))
+        except Exception:
+            return -1
 
     def download_result(self, result: GenerateResult) -> bytes:
         """Return raw image bytes from a GenerateResult.

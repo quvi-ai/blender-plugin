@@ -54,7 +54,14 @@ class QUVIAI_OT_login_email(Operator):
             prefs.access_token = client.access_token
             prefs.refresh_token = client.refresh_token or ""
             prefs.password = ""  # clear password from memory after login
+            prefs.credits = -1   # reset until fetch completes
             self.report({"INFO"}, "Logged in successfully.")
+            # Fetch credits in background so we don't block the UI
+            threading.Thread(
+                target=self._fetch_credits,
+                args=(prefs,),
+                daemon=True,
+            ).start()
             return {"FINISHED"}
         except LoginError as exc:
             self.report({"ERROR"}, f"Login failed: {exc}")
@@ -62,6 +69,20 @@ class QUVIAI_OT_login_email(Operator):
         except Exception as exc:
             self.report({"ERROR"}, f"Unexpected error: {exc}")
             return {"CANCELLED"}
+
+    @staticmethod
+    def _fetch_credits(prefs) -> None:
+        ensure_vendor_in_path()
+        try:
+            from quviai import QuviClient
+            client = QuviClient.from_tokens(
+                access_token=prefs.access_token,
+                refresh_token=prefs.refresh_token or None,
+            )
+            credits = client.get_credits()
+            bpy.app.timers.register(lambda: _set_credits(prefs, credits))
+        except Exception:
+            pass
 
 
 class QUVIAI_OT_login_google(Operator):
@@ -93,7 +114,6 @@ class QUVIAI_OT_login_google(Operator):
         webbrowser.open(auth_url)
         self.report({"INFO"}, "Browser opened — waiting for Google login…")
 
-        # Run the local callback server in a background thread
         thread = threading.Thread(
             target=self._wait_for_callback,
             args=(prefs, redirect_uri),
@@ -121,10 +141,10 @@ class QUVIAI_OT_login_google(Operator):
                 )
 
             def log_message(self, *args):
-                pass  # suppress server log output
+                pass
 
         server = HTTPServer(("localhost", GOOGLE_OAUTH_PORT), Handler)
-        server.timeout = 120  # wait up to 2 minutes for the user to log in
+        server.timeout = 120
         server.handle_request()
         server.server_close()
 
@@ -150,6 +170,8 @@ class QUVIAI_OT_login_google(Operator):
             bpy.app.timers.register(
                 lambda: self._save_tokens(prefs, client.access_token, client.refresh_token)
             )
+            credits = client.get_credits()
+            bpy.app.timers.register(lambda: _set_credits(prefs, credits))
         except Exception as exc:
             bpy.app.timers.register(
                 lambda: self._set_error(prefs, str(exc))
@@ -159,11 +181,11 @@ class QUVIAI_OT_login_google(Operator):
     def _save_tokens(prefs, access: str, refresh: str | None):
         prefs.access_token = access
         prefs.refresh_token = refresh or ""
+        prefs.credits = -1
         return None
 
     @staticmethod
     def _set_error(prefs, message: str):
-        # Can't call self.report from a timer — use print as fallback
         print(f"QUVIAI Google login error: {message}")
         return None
 
@@ -179,8 +201,49 @@ class QUVIAI_OT_logout(Operator):
         prefs = get_preferences(context)
         prefs.access_token = ""
         prefs.refresh_token = ""
+        prefs.credits = -1
         self.report({"INFO"}, "Logged out.")
         return {"FINISHED"}
+
+
+class QUVIAI_OT_refresh_credits(Operator):
+    """Fetch the current credit balance from QUVIAI"""
+
+    bl_idname = "quviai.refresh_credits"
+    bl_label = "Refresh Credits"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context: bpy.types.Context):
+        prefs = get_preferences(context)
+        if not prefs.access_token:
+            self.report({"ERROR"}, "Not logged in.")
+            return {"CANCELLED"}
+
+        ensure_vendor_in_path()
+        try:
+            from quviai import QuviClient
+        except ImportError:
+            self.report({"ERROR"}, "SDK missing.")
+            return {"CANCELLED"}
+
+        try:
+            client = QuviClient.from_tokens(
+                access_token=prefs.access_token,
+                refresh_token=prefs.refresh_token or None,
+                base_url=prefs.base_url,
+                client_key=CLIENT_KEY,
+            )
+            credits = client.get_credits()
+            prefs.credits = credits
+            if client.access_token != prefs.access_token:
+                prefs.access_token = client.access_token
+                if client.refresh_token:
+                    prefs.refresh_token = client.refresh_token
+            self.report({"INFO"}, f"Credits: {credits}")
+            return {"FINISHED"}
+        except Exception as exc:
+            self.report({"ERROR"}, f"Failed to fetch credits: {exc}")
+            return {"CANCELLED"}
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +275,6 @@ class QUVIAI_OT_render(Operator):
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
 
-        # Snapshot all mutable UI state before handing off to the background thread
         params = {
             "prompt":      props.prompt,
             "style":       STYLE_TO_API.get(props.style, "no style"),
@@ -237,7 +299,13 @@ class QUVIAI_OT_render(Operator):
     def _run_in_thread(self, prefs, props, image_b64: str, params: dict) -> None:
         ensure_vendor_in_path()
         try:
-            from quviai import QuviClient, TokenExpiredError
+            from quviai import (
+                QuviClient,
+                TokenExpiredError,
+                RateLimitError,
+                InsufficientCreditsError,
+                ContentModerationError,
+            )
         except ImportError:
             bpy.app.timers.register(
                 lambda: self._finish(props, error="SDK missing. Run scripts/update_vendor.sh.")
@@ -250,8 +318,8 @@ class QUVIAI_OT_render(Operator):
                 refresh_token=prefs.refresh_token or None,
                 base_url=prefs.base_url,
                 client_key=CLIENT_KEY,
-                poll_interval=prefs.poll_interval,
-                poll_timeout=prefs.poll_timeout,
+                poll_interval=2.0,
+                poll_timeout=900.0,
             )
 
             def on_status(status):
@@ -287,6 +355,19 @@ class QUVIAI_OT_render(Operator):
             bpy.app.timers.register(
                 lambda: self._finish(props, error="Session expired. Please log in again.")
             )
+        except InsufficientCreditsError:
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Insufficient credits. Visit quvi.ai to top up.")
+            )
+        except RateLimitError:
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Rate limit exceeded. Please wait a moment and try again.")
+            )
+        except ContentModerationError as exc:
+            reason = exc.reason or exc.category or "prompt rejected by content policy"
+            bpy.app.timers.register(
+                lambda: self._finish(props, error=f"Content policy violation: {reason}")
+            )
         except Exception as exc:
             import traceback
             try:
@@ -302,6 +383,7 @@ class QUVIAI_OT_render(Operator):
         props.status = message
         if pct is not None:
             props.progress = float(pct)
+        _tag_redraw()
         return None
 
     @staticmethod
@@ -322,27 +404,15 @@ class QUVIAI_OT_render(Operator):
         props.is_rendering = False
         if error:
             props.status = f"Error: {error}"
+            _tag_redraw()
             return None
         if image_bytes:
             img = load_image_into_blender(RESULT_IMAGE_NAME, image_bytes)
             props.result_image_name = img.name
             opened = open_in_image_editor(bpy.context, img)
             props.status = "Done." if opened else "Done — open an Image Editor to view the result."
+        _tag_redraw()
         return None
-
-
-class QUVIAI_OT_cancel(Operator):
-    """Cancel the running QUVIAI render (stops polling; task may still run on server)"""
-
-    bl_idname = "quviai.cancel"
-    bl_label = "Cancel"
-    bl_options = {"REGISTER"}
-
-    def execute(self, context: bpy.types.Context):
-        props = context.scene.quviai
-        props.is_rendering = False
-        props.status = "Cancelled."
-        return {"FINISHED"}
 
 
 class QUVIAI_OT_open_result(Operator):
@@ -368,19 +438,36 @@ class QUVIAI_OT_open_result(Operator):
         return {"FINISHED"}
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _tag_redraw() -> None:
+    """Force all VIEW_3D areas to redraw so the N-panel updates immediately."""
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+
+
+def _set_credits(prefs, credits: int) -> None:
+    prefs.credits = credits
+    return None
+
+
 def register() -> None:
     bpy.utils.register_class(QUVIAI_OT_login_email)
     bpy.utils.register_class(QUVIAI_OT_login_google)
     bpy.utils.register_class(QUVIAI_OT_logout)
+    bpy.utils.register_class(QUVIAI_OT_refresh_credits)
     bpy.utils.register_class(QUVIAI_OT_render)
-    bpy.utils.register_class(QUVIAI_OT_cancel)
     bpy.utils.register_class(QUVIAI_OT_open_result)
 
 
 def unregister() -> None:
     bpy.utils.unregister_class(QUVIAI_OT_open_result)
-    bpy.utils.unregister_class(QUVIAI_OT_cancel)
     bpy.utils.unregister_class(QUVIAI_OT_render)
+    bpy.utils.unregister_class(QUVIAI_OT_refresh_credits)
     bpy.utils.unregister_class(QUVIAI_OT_logout)
     bpy.utils.unregister_class(QUVIAI_OT_login_google)
     bpy.utils.unregister_class(QUVIAI_OT_login_email)

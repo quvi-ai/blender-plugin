@@ -90,12 +90,26 @@ def get_preferences(context: bpy.types.Context):
 
 
 def open_in_image_editor(context: bpy.types.Context, image: bpy.types.Image) -> bool:
-    """Switch an existing Image Editor area to show the given image.
+    """Show the image in an Image Editor, converting a utility area if needed.
 
-    Returns True if an Image Editor was found, False otherwise.
+    Returns True if the image is now visible in an Image Editor.
     """
     for area in context.screen.areas:
         if area.type == "IMAGE_EDITOR":
             area.spaces.active.image = image
             return True
+
+    # No Image Editor open — convert the smallest non-3D-viewport area.
+    candidate = None
+    for area in context.screen.areas:
+        if area.type in ("OUTLINER", "PROPERTIES", "CONSOLE", "INFO", "TEXT_EDITOR"):
+            size = area.width * area.height
+            if candidate is None or size < candidate.width * candidate.height:
+                candidate = area
+
+    if candidate is not None:
+        candidate.type = "IMAGE_EDITOR"
+        candidate.spaces.active.image = image
+        return True
+
     return False

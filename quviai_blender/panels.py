@@ -24,6 +24,14 @@ class QUVIAI_PT_main(Panel):
             box.label(text="Edit > Preferences > Add-ons > QUVIAI Render")
             return
 
+        # --- Credits ---
+        cred_row = layout.row()
+        cred_label = f"Credits: {prefs.credits}" if prefs.credits >= 0 else "Credits: —"
+        cred_row.label(text=cred_label, icon="FUND")
+        cred_row.operator("quviai.refresh_credits", text="", icon="FILE_REFRESH")
+
+        layout.separator()
+
         # --- Render settings ---
         col = layout.column(align=True)
         col.prop(props, "prompt", text="Prompt")
@@ -38,12 +46,10 @@ class QUVIAI_PT_main(Panel):
         # --- Action / status ---
         if props.is_rendering:
             box = layout.box()
-            # Progress bar
             if props.progress > 0:
                 row = box.row()
                 row.prop(props, "progress", text="Progress", slider=True)
             box.label(text=props.status or "Rendering…", icon="SORTTIME")
-            box.operator("quviai.cancel", icon="X")
         else:
             layout.operator("quviai.render", icon="RENDER_STILL")
 

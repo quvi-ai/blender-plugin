@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import bpy
-from bpy.props import FloatProperty, StringProperty
+from bpy.props import IntProperty, StringProperty
 from bpy.types import AddonPreferences
 
 
@@ -37,27 +37,18 @@ class QuviAIPreferences(AddonPreferences):
         options={"HIDDEN"},
     )  # type: ignore[assignment]
 
+    credits: IntProperty(
+        name="Credits",
+        description="Available QUVIAI credits (auto-filled after login)",
+        default=-1,
+        options={"HIDDEN"},
+    )  # type: ignore[assignment]
+
     # --- Connection ---
     base_url: StringProperty(
         name="Base URL",
         description="QUVIAI API base URL (do not change unless instructed)",
         default="https://quvi.ai",
-    )  # type: ignore[assignment]
-
-    poll_interval: FloatProperty(
-        name="Poll Interval (s)",
-        description="How often to check render status",
-        default=2.0,
-        min=1.0,
-        max=10.0,
-    )  # type: ignore[assignment]
-
-    poll_timeout: FloatProperty(
-        name="Poll Timeout (s)",
-        description="Maximum time to wait for a render task",
-        default=900.0,
-        min=60.0,
-        max=1800.0,
     )  # type: ignore[assignment]
 
     def draw(self, context: bpy.types.Context) -> None:
@@ -72,6 +63,10 @@ class QuviAIPreferences(AddonPreferences):
             row = box.row()
             row.label(text="Logged in", icon="CHECKMARK")
             row.operator("quviai.logout", text="Log Out", icon="X")
+            cred_row = box.row()
+            cred_label = f"Credits: {self.credits}" if self.credits >= 0 else "Credits: —"
+            cred_row.label(text=cred_label, icon="FUND")
+            cred_row.operator("quviai.refresh_credits", text="", icon="FILE_REFRESH")
         else:
             box.prop(self, "email")
             box.prop(self, "password")
@@ -85,9 +80,6 @@ class QuviAIPreferences(AddonPreferences):
         box = layout.box()
         box.label(text="Advanced", icon="PREFERENCES")
         box.prop(self, "base_url")
-        row = box.row()
-        row.prop(self, "poll_interval")
-        row.prop(self, "poll_timeout")
 
 
 def register() -> None:

@@ -46,12 +46,35 @@ class HTTPClient:
                 return self._post(path, body, self._auth.headers())
             raise
 
+    def get(self, path: str) -> dict[str, Any]:
+        try:
+            return self._get(path, self._auth.headers())
+        except AuthError as exc:
+            if exc.status_code == 401 and self._auth.refresh_token and path not in _NO_REFRESH_PATHS:
+                self._refresh()
+                return self._get(path, self._auth.headers())
+            raise
+
     def get_bytes(self, url: str) -> bytes:
         """Fetch raw bytes from an arbitrary URL (for downloading result images)."""
         with urllib.request.urlopen(url, timeout=self._timeout) as resp:
             return resp.read()
 
     # ------------------------------------------------------------------
+
+    def _get(self, path: str, extra_headers: dict[str, str]) -> dict[str, Any]:
+        url = f"{self._base_url}{path}"
+        headers = {"Accept": "application/json", **extra_headers}
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            try:
+                error_body = json.loads(exc.read())
+            except Exception:
+                error_body = {}
+            self._raise_for_status(exc.code, error_body)
 
     def _post(self, path: str, body: dict[str, Any], extra_headers: dict[str, str]) -> dict[str, Any]:
         url = f"{self._base_url}{path}"

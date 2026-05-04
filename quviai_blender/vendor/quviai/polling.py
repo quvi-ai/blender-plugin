@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import socket
 import time
+import urllib.error
 from typing import Callable
 
 from .exceptions import TaskFailedError, TaskTimeoutError
 from .models import TaskStatus
+
+_MAX_TIMEOUT_RETRIES = 5
 
 
 class JobPoller:
@@ -31,11 +35,29 @@ class JobPoller:
             TaskNotFoundError: 404 from the API (task expired or never existed).
         """
         deadline = time.monotonic() + self._timeout
+        timeout_retries = 0
 
         while time.monotonic() < deadline:
-            response = self._http.post(
-                "/api/check-queue-status/", {"task_id": task_id}
-            )
+            try:
+                response = self._http.post(
+                    "/api/check-queue-status/", {"task_id": task_id}
+                )
+                timeout_retries = 0  # reset on successful response
+            except (TimeoutError, socket.timeout):
+                timeout_retries += 1
+                if timeout_retries > _MAX_TIMEOUT_RETRIES:
+                    raise
+                time.sleep(self._interval)
+                continue
+            except urllib.error.URLError as exc:
+                if isinstance(getattr(exc, "reason", None), (TimeoutError, socket.timeout)):
+                    timeout_retries += 1
+                    if timeout_retries > _MAX_TIMEOUT_RETRIES:
+                        raise
+                    time.sleep(self._interval)
+                    continue
+                raise
+
             status = self._parse(task_id, response)
 
             if self._on_status:
