@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import socket
 import time
 import urllib.error
@@ -8,7 +9,23 @@ from typing import Callable
 from .exceptions import TaskFailedError, TaskTimeoutError
 from .models import TaskStatus
 
-_MAX_TIMEOUT_RETRIES = 5
+# How many consecutive network errors to tolerate before giving up.
+# When Blender moves to the background the OS may reset open sockets;
+# we need enough retries to survive that and reestablish the connection.
+_MAX_NETWORK_RETRIES = 10
+
+# Exceptions that indicate a transient network problem worth retrying.
+# All are subclasses of OSError; listed explicitly for clarity.
+_TRANSIENT = (
+    TimeoutError,           # includes socket.timeout on Python 3.3+
+    ConnectionResetError,
+    ConnectionAbortedError,
+    ConnectionRefusedError,
+    BrokenPipeError,
+    http.client.RemoteDisconnected,
+    http.client.IncompleteRead,
+    http.client.HTTPException,
+)
 
 
 class JobPoller:
@@ -35,24 +52,25 @@ class JobPoller:
             TaskNotFoundError: 404 from the API (task expired or never existed).
         """
         deadline = time.monotonic() + self._timeout
-        timeout_retries = 0
+        network_retries = 0
 
         while time.monotonic() < deadline:
             try:
                 response = self._http.post(
                     "/api/check-queue-status/", {"task_id": task_id}
                 )
-                timeout_retries = 0  # reset on successful response
-            except (TimeoutError, socket.timeout):
-                timeout_retries += 1
-                if timeout_retries > _MAX_TIMEOUT_RETRIES:
+                network_retries = 0  # reset on any successful response
+            except _TRANSIENT as exc:
+                network_retries += 1
+                if network_retries > _MAX_NETWORK_RETRIES:
                     raise
                 time.sleep(self._interval)
                 continue
             except urllib.error.URLError as exc:
-                if isinstance(getattr(exc, "reason", None), (TimeoutError, socket.timeout)):
-                    timeout_retries += 1
-                    if timeout_retries > _MAX_TIMEOUT_RETRIES:
+                # URLError wraps OS-level network errors in its .reason field
+                if isinstance(getattr(exc, "reason", None), OSError):
+                    network_retries += 1
+                    if network_retries > _MAX_NETWORK_RETRIES:
                         raise
                     time.sleep(self._interval)
                     continue

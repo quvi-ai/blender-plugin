@@ -44,13 +44,6 @@ class QuviAIPreferences(AddonPreferences):
         options={"HIDDEN"},
     )  # type: ignore[assignment]
 
-    # --- Connection ---
-    base_url: StringProperty(
-        name="Base URL",
-        description="QUVIAI API base URL (do not change unless instructed)",
-        default="https://quvi.ai",
-    )  # type: ignore[assignment]
-
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         is_logged_in = bool(self.access_token)
@@ -76,10 +69,6 @@ class QuviAIPreferences(AddonPreferences):
             col.label(text="Or:")
             col.operator("quviai.login_google", text="Log In with Google", icon="URL")
 
-        # --- Advanced ---
-        box = layout.box()
-        box.label(text="Advanced", icon="PREFERENCES")
-        box.prop(self, "base_url")
 
 
 def register() -> None:

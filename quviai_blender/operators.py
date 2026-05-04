@@ -48,7 +48,6 @@ class QUVIAI_OT_login_email(Operator):
             client = QuviClient.login(
                 prefs.email,
                 prefs.password,
-                base_url=prefs.base_url,
                 client_key=CLIENT_KEY,
             )
             prefs.access_token = client.access_token
@@ -164,7 +163,6 @@ class QUVIAI_OT_login_google(Operator):
                 auth_code=code,
                 redirect_uri=redirect_uri,
                 client_type="android",
-                base_url=prefs.base_url,
                 client_key=CLIENT_KEY,
             )
             bpy.app.timers.register(
@@ -230,7 +228,6 @@ class QUVIAI_OT_refresh_credits(Operator):
             client = QuviClient.from_tokens(
                 access_token=prefs.access_token,
                 refresh_token=prefs.refresh_token or None,
-                base_url=prefs.base_url,
                 client_key=CLIENT_KEY,
             )
             credits = client.get_credits()
@@ -317,7 +314,6 @@ class QUVIAI_OT_render(Operator):
             client = QuviClient.from_tokens(
                 access_token=prefs.access_token,
                 refresh_token=prefs.refresh_token or None,
-                base_url=prefs.base_url,
                 client_key=CLIENT_KEY,
                 poll_interval=2.0,
                 poll_timeout=900.0,

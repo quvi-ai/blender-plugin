@@ -48,8 +48,10 @@ class QUVIAI_PT_main(Panel):
         if props.is_rendering:
             box = layout.box()
             if props.progress > 0:
-                row = box.row()
-                row.prop(props, "progress", text="Progress", slider=True)
+                box.progress(
+                    factor=props.progress / 100.0,
+                    text=f"{int(props.progress)}%",
+                )
             box.label(text=props.status or "Rendering…", icon="SORTTIME")
         else:
             layout.operator("quviai.render", icon="RENDER_STILL")
