@@ -1,0 +1,31 @@
+name: Build Add-on ZIP
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build quviai_blender.zip
+        run: |
+          zip -r quviai_blender.zip quviai_blender/ \
+            --exclude "*.pyc" \
+            --exclude "*/__pycache__/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quviai_blender
+          path: quviai_blender.zip
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: quviai_blender.zip
