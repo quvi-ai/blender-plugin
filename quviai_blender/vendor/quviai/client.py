@@ -252,8 +252,25 @@ class QuviClient:
             timeout=self._poll_timeout,
             on_status=on_status,
         )
-        poller.poll(task_id)
-        return self._http.download_authenticated(f"/api/3d-objects/download/?task_id={task_id}")
+        result = poller.poll(task_id)
+
+        # The completed result contains an S3 URL — try all known keys.
+        url = (
+            result.get("url")
+            or result.get("result_url")
+            or result.get("download_url")
+            or result.get("model_url")
+            or result.get("model")
+            or result.get("file")
+            or result.get("object")
+        )
+        if url and str(url).startswith(("http://", "https://")):
+            return self._http.get_bytes(str(url))
+
+        # Fallback: authenticated download endpoint
+        return self._http.download_authenticated(
+            f"/api/3d-objects/download/?task_id={task_id}"
+        )
 
     def submit_object_3d(
         self,
