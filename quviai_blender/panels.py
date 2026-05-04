@@ -42,7 +42,11 @@ class QUVIAI_PT_main(Panel):
         else:
             col.prop(props, "general_style", text="Style")
 
-        col.prop(props, "prompt", text="Prompt")
+        layout.separator(factor=0.5)
+        layout.label(text="Prompt")
+        prompt_col = layout.column(align=True)
+        prompt_col.scale_y = 2.5
+        prompt_col.prop(props, "prompt", text="")
 
         # --- Architectural-only controls ---
         if props.style_category == "architectural":
