@@ -30,9 +30,11 @@ def capture_viewport(context: bpy.types.Context) -> str:
     orig_filepath = scene.render.filepath
     orig_format = scene.render.image_settings.file_format
     orig_quality = scene.render.image_settings.quality
+    orig_percentage = scene.render.resolution_percentage
     scene.render.filepath = tmp_path
     scene.render.image_settings.file_format = "WEBP"
-    scene.render.image_settings.quality = 90
+    scene.render.image_settings.quality = 95
+    scene.render.resolution_percentage = 100  # always capture at full resolution
 
     try:
         bpy.ops.render.opengl(write_still=True)
@@ -40,6 +42,7 @@ def capture_viewport(context: bpy.types.Context) -> str:
         scene.render.filepath = orig_filepath
         scene.render.image_settings.file_format = orig_format
         scene.render.image_settings.quality = orig_quality
+        scene.render.resolution_percentage = orig_percentage
 
     img = bpy.data.images.load(tmp_path, check_existing=False)
     img.name = "_quviai_upload_tmp"
