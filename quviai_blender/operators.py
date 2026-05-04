@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import threading
 import webbrowser
+from pathlib import Path
 
 import bpy
 from bpy.types import Operator
@@ -12,6 +15,7 @@ from .utils import (
     capture_viewport,
     ensure_vendor_in_path,
     get_preferences,
+    image_file_to_base64,
     load_image_into_blender,
     open_in_image_editor,
 )
@@ -248,23 +252,24 @@ class QUVIAI_OT_refresh_credits(Operator):
 # ---------------------------------------------------------------------------
 
 class QUVIAI_OT_edit_prompt(Operator):
-    """Edit the render prompt in a popup dialog"""
+    """Edit a prompt string in a wide popup dialog"""
 
     bl_idname = "quviai.edit_prompt"
     bl_label = "Edit Prompt"
     bl_options = {"REGISTER", "UNDO"}
 
+    target_prop: bpy.props.StringProperty(default="prompt")  # type: ignore[assignment]
     prompt: bpy.props.StringProperty(name="Prompt", default="")  # type: ignore[assignment]
 
     def invoke(self, context: bpy.types.Context, event):
-        self.prompt = context.scene.quviai.prompt
+        self.prompt = getattr(context.scene.quviai, self.target_prop, "")
         return context.window_manager.invoke_props_dialog(self, width=600)
 
     def draw(self, context: bpy.types.Context) -> None:
         self.layout.prop(self, "prompt", text="")
 
     def execute(self, context: bpy.types.Context):
-        context.scene.quviai.prompt = self.prompt
+        setattr(context.scene.quviai, self.target_prop, self.prompt)
         return {"FINISHED"}
 
 
@@ -479,6 +484,181 @@ class QUVIAI_OT_open_result(Operator):
 
 
 # ---------------------------------------------------------------------------
+# 3D Object generation operator
+# ---------------------------------------------------------------------------
+
+class QUVIAI_OT_generate_object(Operator):
+    """Generate a 3D object from text or image and import it into the scene"""
+
+    bl_idname = "quviai.generate_object"
+    bl_label = "Generate 3D Object"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context: bpy.types.Context):
+        prefs = get_preferences(context)
+        props = context.scene.quviai
+
+        if not prefs.access_token:
+            self.report({"ERROR"}, "Not logged in.")
+            return {"CANCELLED"}
+
+        if props.obj_is_generating:
+            self.report({"WARNING"}, "Generation already in progress.")
+            return {"CANCELLED"}
+
+        if props.obj_mode == "prompt":
+            if not props.obj_prompt.strip():
+                self.report({"ERROR"}, "Enter a prompt first.")
+                return {"CANCELLED"}
+            image_b64 = None
+            prompt = props.obj_prompt.strip()
+        else:
+            if not props.obj_image_path:
+                self.report({"ERROR"}, "Select an image file first.")
+                return {"CANCELLED"}
+            try:
+                image_b64 = image_file_to_base64(props.obj_image_path)
+            except Exception as exc:
+                self.report({"ERROR"}, f"Could not load image: {exc}")
+                return {"CANCELLED"}
+            prompt = ""
+
+        props.obj_is_generating = True
+        props.obj_progress = 0.0
+        props.obj_status = "Submitting…"
+
+        import time as _time
+        thread = threading.Thread(
+            target=self._run_in_thread,
+            args=(prefs, props, prompt, image_b64, _time.monotonic()),
+            daemon=True,
+        )
+        thread.start()
+        return {"FINISHED"}
+
+    def _run_in_thread(self, prefs, props, prompt: str, image_b64: str | None, start_time: float) -> None:
+        ensure_vendor_in_path()
+        try:
+            from quviai import (
+                QuviClient,
+                TokenExpiredError,
+                RateLimitError,
+                InsufficientCreditsError,
+                ContentModerationError,
+            )
+        except ImportError:
+            bpy.app.timers.register(lambda: self._finish(props, error="SDK missing."))
+            return
+
+        try:
+            client = QuviClient.from_tokens(
+                access_token=prefs.access_token,
+                refresh_token=prefs.refresh_token or None,
+                client_key=CLIENT_KEY,
+                poll_interval=2.0,
+                poll_timeout=900.0,
+            )
+
+            def on_status(status):
+                import time as _time
+                elapsed = int(_time.monotonic() - start_time)
+                parts = []
+                if status.queue_position:
+                    parts.append(f"Queue: {status.queue_position}")
+                if status.eta_formatted and status.eta_formatted not in ("Completed", ""):
+                    parts.append(f"ETA: {status.eta_formatted}")
+                parts.append(f"{elapsed}s")
+                msg = " · ".join(parts)
+                pct = status.progress_percentage
+                bpy.app.timers.register(lambda: self._set_progress(props, msg, pct))
+
+            glb_bytes = client.generate_object_3d(
+                prompt=prompt,
+                image=image_b64,
+                on_status=on_status,
+            )
+
+            if client.access_token != prefs.access_token:
+                bpy.app.timers.register(
+                    lambda: self._save_tokens(prefs, client.access_token, client.refresh_token)
+                )
+            if client._last_credit is not None:
+                new_credit = client._last_credit
+                bpy.app.timers.register(lambda: _set_credits(prefs, new_credit))
+
+            bpy.app.timers.register(lambda: self._finish(props, glb_bytes=glb_bytes))
+
+        except TokenExpiredError:
+            bpy.app.timers.register(lambda: self._clear_tokens(prefs))
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Session expired. Please log in again.")
+            )
+        except InsufficientCreditsError:
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Insufficient credits. Visit quvi.ai to top up.")
+            )
+        except RateLimitError:
+            bpy.app.timers.register(
+                lambda: self._finish(props, error="Rate limit exceeded. Please wait a moment.")
+            )
+        except ContentModerationError as exc:
+            reason = exc.reason or exc.category or "prompt rejected by content policy"
+            bpy.app.timers.register(
+                lambda: self._finish(props, error=f"Content policy violation: {reason}")
+            )
+        except Exception as exc:
+            import traceback
+            try:
+                with open("/tmp/quviai_error.txt", "w") as _f:
+                    _f.write(traceback.format_exc())
+            except Exception:
+                pass
+            err_msg = str(exc)
+            bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
+
+    @staticmethod
+    def _set_progress(props, message: str, pct: float | None):
+        props.obj_status = message
+        if pct is not None:
+            props.obj_progress = float(pct)
+        _tag_redraw()
+        return None
+
+    @staticmethod
+    def _save_tokens(prefs, access: str, refresh: str | None):
+        prefs.access_token = access
+        if refresh:
+            prefs.refresh_token = refresh
+        return None
+
+    @staticmethod
+    def _clear_tokens(prefs):
+        prefs.access_token = ""
+        prefs.refresh_token = ""
+        return None
+
+    @staticmethod
+    def _finish(props, glb_bytes: bytes | None = None, error: str | None = None):
+        props.obj_is_generating = False
+        if error:
+            props.obj_status = f"Error: {error}"
+            _tag_redraw()
+            return None
+        if glb_bytes:
+            tmp_path = os.path.join(tempfile.gettempdir(), "quviai_object.glb")
+            try:
+                Path(tmp_path).write_bytes(glb_bytes)
+                bpy.ops.import_scene.gltf(filepath=tmp_path)
+                props.obj_status = "Done — object imported into scene."
+            except Exception as exc:
+                props.obj_status = f"Error importing GLB: {exc}"
+            finally:
+                Path(tmp_path).unlink(missing_ok=True)
+        _tag_redraw()
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -503,9 +683,11 @@ def register() -> None:
     bpy.utils.register_class(QUVIAI_OT_edit_prompt)
     bpy.utils.register_class(QUVIAI_OT_render)
     bpy.utils.register_class(QUVIAI_OT_open_result)
+    bpy.utils.register_class(QUVIAI_OT_generate_object)
 
 
 def unregister() -> None:
+    bpy.utils.unregister_class(QUVIAI_OT_generate_object)
     bpy.utils.unregister_class(QUVIAI_OT_open_result)
     bpy.utils.unregister_class(QUVIAI_OT_render)
     bpy.utils.unregister_class(QUVIAI_OT_edit_prompt)

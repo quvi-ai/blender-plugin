@@ -84,6 +84,42 @@ def load_image_into_blender(name: str, image_bytes: bytes) -> bpy.types.Image:
     return img
 
 
+def image_file_to_base64(filepath: str) -> str:
+    """Load a user image, resize to max 2048px long edge, return WebP base64.
+    Must be called from the main thread.
+    """
+    abs_path = bpy.path.abspath(filepath)
+    img = bpy.data.images.load(abs_path, check_existing=False)
+    img.name = "_quviai_obj_input_tmp"
+    try:
+        w, h = img.size
+        if w == 0 or h == 0:
+            raise ValueError("Image has zero dimensions")
+        max_size = 2048
+        if w > max_size or h > max_size:
+            if w >= h:
+                new_w, new_h = max_size, max(1, round(h * max_size / w))
+            else:
+                new_h, new_w = max_size, max(1, round(w * max_size / h))
+            img.scale(new_w, new_h)
+        tmp_path = os.path.join(tempfile.gettempdir(), "quviai_obj_input.webp")
+        scene = bpy.context.scene
+        orig_format = scene.render.image_settings.file_format
+        orig_quality = scene.render.image_settings.quality
+        scene.render.image_settings.file_format = "WEBP"
+        scene.render.image_settings.quality = 90
+        try:
+            img.save_render(tmp_path, scene=scene)
+        finally:
+            scene.render.image_settings.file_format = orig_format
+            scene.render.image_settings.quality = orig_quality
+        data = Path(tmp_path).read_bytes()
+        Path(tmp_path).unlink(missing_ok=True)
+        return base64.b64encode(data).decode()
+    finally:
+        bpy.data.images.remove(img)
+
+
 def get_preferences(context: bpy.types.Context):
     """Return the add-on AddonPreferences instance."""
     return context.preferences.addons[__package__].preferences

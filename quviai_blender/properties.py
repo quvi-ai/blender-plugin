@@ -168,11 +168,38 @@ class QuviAIProperties(PropertyGroup):
         default="sunny",
     )  # type: ignore[assignment]
 
-    # --- Task state ---
+    # --- Render task state ---
     is_rendering: BoolProperty(default=False)  # type: ignore[assignment]
     status: StringProperty(default="")  # type: ignore[assignment]
     progress: FloatProperty(default=0.0, min=0.0, max=100.0)  # type: ignore[assignment]
     result_image_name: StringProperty(default="")  # type: ignore[assignment]
+
+    # --- 3D Object generation ---
+    obj_mode: EnumProperty(
+        name="Mode",
+        items=[
+            ("prompt", "From Prompt", "Generate a 3D object from a text description"),
+            ("image",  "From Image",  "Generate a 3D object from a reference image"),
+        ],
+        default="prompt",
+    )  # type: ignore[assignment]
+
+    obj_prompt: StringProperty(
+        name="Prompt",
+        description="Describe the 3D object to generate",
+        default="",
+    )  # type: ignore[assignment]
+
+    obj_image_path: StringProperty(
+        name="Image",
+        description="Reference image file for image-to-3D generation",
+        default="",
+        subtype="FILE_PATH",
+    )  # type: ignore[assignment]
+
+    obj_is_generating: BoolProperty(default=False)  # type: ignore[assignment]
+    obj_status: StringProperty(default="")  # type: ignore[assignment]
+    obj_progress: FloatProperty(default=0.0, min=0.0, max=100.0)  # type: ignore[assignment]
 
 
 def register() -> None:

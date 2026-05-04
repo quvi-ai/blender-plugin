@@ -230,6 +230,47 @@ class QuviClient:
             self._last_credit = int(resp["credit"])
         return resp["task_id"]
 
+    def generate_object_3d(
+        self,
+        prompt: str = "",
+        image: str | Path | bytes | None = None,
+        on_status: Callable[[TaskStatus], None] | None = None,
+    ) -> bytes:
+        """Generate a 3D object from text or image. Returns GLB bytes.
+
+        Pass either ``prompt`` (text-to-3D) or ``image`` (image-to-3D).
+        """
+        task_id = self.submit_object_3d(prompt=prompt, image=image)
+        poll_http = HTTPClient(
+            auth=self._auth,
+            base_url=self._http._base_url,
+            timeout=15,
+        )
+        poller = JobPoller(
+            http_client=poll_http,
+            interval=self._poll_interval,
+            timeout=self._poll_timeout,
+            on_status=on_status,
+        )
+        poller.poll(task_id)
+        return self._http.download_authenticated(f"/api/3d-objects/download/?task_id={task_id}")
+
+    def submit_object_3d(
+        self,
+        prompt: str = "",
+        image: str | Path | bytes | None = None,
+    ) -> str:
+        """Submit a td-object generation and return the task_id."""
+        body: dict = {}
+        if image is not None:
+            body["image"] = self._encode(image)
+        else:
+            body["prompt"] = prompt
+        resp = self._http.post("/api/td-object/", body)
+        if resp.get("credit") is not None:
+            self._last_credit = int(resp["credit"])
+        return resp["task_id"]
+
     def generate_canvas(
         self,
         image: str | Path | bytes,

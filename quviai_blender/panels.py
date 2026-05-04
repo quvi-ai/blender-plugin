@@ -103,9 +103,66 @@ class QUVIAI_PT_main(Panel):
                 box.label(text=props.status, icon=icon)
 
 
+class QUVIAI_PT_object(Panel):
+    bl_label = "3D Object Generation"
+    bl_idname = "QUVIAI_PT_object"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "QUVIAI"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: bpy.types.Context) -> None:
+        layout = self.layout
+        props = context.scene.quviai
+        prefs = get_preferences(context)
+
+        if not bool(prefs.access_token):
+            layout.label(text="Not logged in", icon="ERROR")
+            return
+
+        # Mode toggle
+        row = layout.row(align=True)
+        row.prop(props, "obj_mode", expand=True)
+
+        layout.separator(factor=0.5)
+
+        if props.obj_mode == "prompt":
+            layout.label(text="Prompt")
+            box = layout.box()
+            if props.obj_prompt:
+                _draw_wrapped(box, props.obj_prompt)
+            else:
+                box.label(text="(empty — click Edit to add)", icon="INFO")
+            op = layout.operator("quviai.edit_prompt", text="Edit Prompt", icon="GREASEPENCIL")
+            op.target_prop = "obj_prompt"
+        else:
+            layout.label(text="Image")
+            layout.prop(props, "obj_image_path", text="")
+
+        layout.separator()
+
+        if props.obj_is_generating:
+            box = layout.box()
+            if props.obj_progress > 0:
+                box.progress(
+                    factor=props.obj_progress / 100.0,
+                    text=f"{int(props.obj_progress)}%",
+                )
+            box.label(text=props.obj_status or "Generating…", icon="SORTTIME")
+        else:
+            layout.operator("quviai.generate_object", icon="MESH_ICOSPHERE")
+
+            if props.obj_status:
+                box = layout.box()
+                icon = "ERROR" if props.obj_status.startswith("Error") else "CHECKMARK"
+                box.label(text=props.obj_status, icon=icon)
+
+
 def register() -> None:
     bpy.utils.register_class(QUVIAI_PT_main)
+    bpy.utils.register_class(QUVIAI_PT_object)
 
 
 def unregister() -> None:
+    bpy.utils.unregister_class(QUVIAI_PT_object)
     bpy.utils.unregister_class(QUVIAI_PT_main)
