@@ -56,7 +56,7 @@ def capture_viewport(context: bpy.types.Context) -> str:
                 new_h, new_w = max_size, max(1, round(w * max_size / h))
             img.scale(new_w, new_h)
             scene.render.image_settings.file_format = "WEBP"
-            scene.render.image_settings.quality = 90
+            scene.render.image_settings.quality = 95
             try:
                 img.save_render(tmp_path, scene=scene)
             finally:
