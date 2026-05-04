@@ -33,14 +33,29 @@ class QUVIAI_PT_main(Panel):
 
         layout.separator()
 
-        # --- Render settings ---
+        # --- Category + Style ---
         col = layout.column(align=True)
+        col.prop(props, "style_category", text="Category")
+
+        if props.style_category == "architectural":
+            col.prop(props, "arch_style", text="Style")
+        else:
+            col.prop(props, "general_style", text="Style")
+
         col.prop(props, "prompt", text="Prompt")
-        col.prop(props, "style", text="Style")
-        col.prop(props, "render_type", text="Render Type")
-        row = col.row(align=True)
-        row.prop(props, "day_time", text="Time")
-        row.prop(props, "weather", text="Weather")
+
+        # --- Architectural-only controls ---
+        if props.style_category == "architectural":
+            layout.separator()
+            col2 = layout.column(align=True)
+            col2.prop(props, "render_type", text="Render Type")
+
+            if props.render_type == "exterior":
+                row = col2.row(align=True)
+                row.prop(props, "day_time", text="Time")
+                row.prop(props, "weather", text="Weather")
+            elif props.render_type == "interior":
+                col2.prop(props, "day_time", text="Time")
 
         layout.separator()
 

@@ -272,12 +272,23 @@ class QUVIAI_OT_render(Operator):
             self.report({"ERROR"}, f"Viewport capture failed: {exc}")
             return {"CANCELLED"}
 
+        if props.style_category == "architectural":
+            style_id = props.arch_style
+            render_type = props.render_type
+            day_time = props.day_time if render_type in ("exterior", "interior") else None
+            weather  = props.weather  if render_type == "exterior" else None
+        else:
+            style_id = props.general_style
+            render_type = None
+            day_time    = None
+            weather     = None
+
         params = {
             "prompt":      props.prompt,
-            "style":       STYLE_TO_API.get(props.style, "no style"),
-            "render_type": None if props.render_type == "NONE" else props.render_type,
-            "day_time":    None if props.day_time    == "NONE" else props.day_time,
-            "weather":     None if props.weather     == "NONE" else props.weather,
+            "style":       STYLE_TO_API.get(style_id, "no style"),
+            "render_type": render_type,
+            "day_time":    day_time,
+            "weather":     weather,
         }
 
         props.is_rendering = True

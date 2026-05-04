@@ -5,92 +5,139 @@ from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from bpy.types import PropertyGroup
 
 # (blender_id, display_name, api_value)
-_STYLES = [
-    ("no_style",           "No Style",           "no style"),
-    ("Modern",             "Modern",             "Modern"),
-    ("Modernist",          "Modernist",          "Modernist"),
-    ("Art_Deco",           "Art Deco",           "Art Deco"),
-    ("Art_Nouveau",        "Art Nouveau",        "Art Nouveau"),
-    ("Baroque",            "Baroque",            "Baroque"),
-    ("Bauhaus",            "Bauhaus",            "Bauhaus"),
-    ("Chinese",            "Chinese",            "Chinese"),
-    ("Classical",          "Classical",          "Classical"),
-    ("Colonial",           "Colonial",           "Colonial"),
-    ("Deconstructivist",   "Deconstructivist",   "Deconstructivist"),
-    ("Expressionist",      "Expressionist",      "Expressionist"),
-    ("Futuristic",         "Futuristic",         "Futuristic"),
-    ("Gothic_Revival",     "Gothic Revival",     "Gothic Revival"),
-    ("Industrial",         "Industrial",         "Industrial"),
-    ("Islamic",            "Islamic",            "Islamic"),
-    ("Japanese",           "Japanese",           "Japanese"),
-    ("Landscape",          "Landscape",          "Landscape"),
-    ("Mannerist",          "Mannerist",          "Mannerist"),
-    ("Metabolist",         "Metabolist",         "Metabolist"),
-    ("Neoclassical",       "Neoclassical",       "Neoclassical"),
-    ("Neo_Gothic",         "Neo-Gothic",         "Neo-Gothic"),
-    ("Postmodern",         "Postmodern",         "Postmodern"),
-    ("Remodernism",        "Remodernism",        "Remodernism"),
-    ("Rococo",             "Rococo",             "Rococo"),
-    ("Romanesque",         "Romanesque",         "Romanesque"),
-    ("Scandinavian",       "Scandinavian",       "Scandinavian"),
-    ("Sustainable",        "Sustainable",        "Sustainable"),
-    ("Victorian",          "Victorian",          "Victorian"),
-    ("Aerial_Photography", "Aerial Photography", "Aerial Photography"),
-    ("Cyberpunk",          "Cyberpunk",          "Cyberpunk"),
-    ("Steampunk",          "Steampunk",          "Steampunk"),
-    ("Gothic",             "Gothic",             "Gothic"),
-    ("Gothic_Family",      "Gothic Family",      "Gothic Family"),
-    ("Fantasy",            "Fantasy",            "Fantasy"),
-    ("Cinematic",          "Cinematic",          "Cinematic"),
-    ("Oil_Painting",       "Oil Painting",       "Oil Painting"),
-    ("Watercolor",         "Watercolor",         "Watercolor"),
-    ("Pixel_Art",          "Pixel Art",          "Pixel Art"),
-    ("Pop_Art",            "Pop Art",            "Pop Art"),
-    ("Cubism",             "Cubism",             "Cubism"),
-    ("Sketch",             "Sketch",             "Sketch"),
-    ("Line_Art",           "Line Art",           "Line Art"),
-    ("Street_Art",         "Street Art",         "Street Art"),
-    ("Tattoo_Art",         "Tattoo Art",         "Tattoo Art"),
-    ("Origami",            "Origami",            "Origami"),
-    ("Mosaic",             "Mosaic",             "Mosaic"),
-    ("Engraving",          "Engraving",          "Engraving"),
-    ("Monochrome",         "Monochrome",         "Monochrome"),
-    ("Night_Photography",  "Night Photography",  "Night Photography"),
-    ("Food_Photography",   "Food Photography",   "Food Photography"),
-    ("Caricature",         "Caricature",         "Caricature"),
-    ("Animation",          "Animation",          "Animation"),
-    ("East_African_Art",   "East African Art",   "East African Art"),
-    ("Assemblage_Art",     "Assemblage Art",     "Assemblage Art"),
-    ("Automotive_Design",  "Automotive Design",  "Automotive Design"),
-    ("Vampire",            "Vampire",            "Vampire"),
+_ARCH_STYLES = [
+    ("no_style",                      "No Style",        "no style"),
+    ("Art_Deco_Architecture",         "Art Deco",        "Art Deco Architecture"),
+    ("Art_Nouveau_Architecture",      "Art Nouveau",     "Art Nouveau Architecture"),
+    ("Baroque_Architecture",          "Baroque",         "Baroque Architecture"),
+    ("Bauhaus_Architecture",          "Bauhaus",         "Bauhaus Architecture"),
+    ("Chinese_Architecture",          "Chinese",         "Chinese Architecture"),
+    ("Classical_Architecture",        "Classical",       "Classical Architecture"),
+    ("Colonial_Architecture",         "Colonial",        "Colonial Architecture"),
+    ("Deconstructivist_Architecture", "Deconstructivist","Deconstructivist Architecture"),
+    ("Expressionist_Architecture",    "Expressionist",   "Expressionist Architecture"),
+    ("Futurist_Architecture",         "Futurist",        "Futurist Architecture"),
+    ("Gothic_Revival_Architecture",   "Gothic Revival",  "Gothic Revival Architecture"),
+    ("Industrial_Architecture",       "Industrial",      "Industrial Architecture"),
+    ("Islamic_Architecture",          "Islamic",         "Islamic Architecture"),
+    ("Japanese_Architecture",         "Japanese",        "Japanese Architecture"),
+    ("Landscape_Architecture",        "Landscape",       "Landscape Architecture"),
+    ("Line_Art_Arch",                 "Line Art",        "sai-line art_Uncategorized"),
+    ("Mannerist_Architecture",        "Mannerist",       "Mannerist Architecture"),
+    ("Metabolist_Architecture",       "Metabolist",      "Metabolist Architecture"),
+    ("Modern_Architecture",           "Modern",          "Modern Architecture"),
+    ("Modernist_Architecture",        "Modernist",       "Modernist Architecture"),
+    ("Neoclassical_Architecture",     "Neoclassical",    "Neoclassical Architecture"),
+    ("Neo_Gothic_Architecture",       "Neo-Gothic",      "Neo-Gothic Architecture"),
+    ("Postmodern_Architecture",       "Postmodern",      "Postmodern Architecture"),
+    ("Remodernism_Architecture",      "Remodernism",     "Remodernism_Architecture"),
+    ("Rococo_Architecture",           "Rococo",          "Rococo Architecture"),
+    ("Romanesque_Architecture",       "Romanesque",      "Romanesque Architecture"),
+    ("Scandinavian_Design",           "Scandinavian",    "Scandinavian Design"),
+    ("Sustainable_Architecture",      "Sustainable",     "Sustainable Architecture"),
+    ("Victorian_Architecture",        "Victorian",       "Victorian Architecture"),
 ]
 
-STYLE_ITEMS = [(s[0], s[1], "") for s in _STYLES]
-STYLE_TO_API = {s[0]: s[2] for s in _STYLES}
+_GENERAL_STYLES = [
+    ("no_style",               "No Style",            "no style"),
+    ("3D_Animation",           "3D Animation",        "3D Animation"),
+    ("Action_Films",           "Action Films",        "Action Films"),
+    ("Aerial_Photography",     "Aerial Photography",  "Aerial Photography"),
+    ("African_Mask_Art",       "African Mask Art",    "African Mask Art"),
+    ("Analytical_Cubism",      "Analytical Cubism",   "Analytical Cubism"),
+    ("Animation",              "Animation",           "Animation"),
+    ("Art_Mobile_Apps",        "Art for Mobile Apps", "Art for Mobile Apps"),
+    ("Assemblage_Art",         "Assemblage Art",      "Assemblage Art"),
+    ("Automotive_Design",      "Automotive Design",   "Automotive Design"),
+    ("Caricature",             "Caricature",          "Caricature"),
+    ("Ceramics",               "Ceramics",            "Ceramics"),
+    ("Cinematic",              "Cinematic",           "sai-cinematic_Uncategorized"),
+    ("Aardman",                "Aardman",             "Aardman_Uncategorized"),
+    ("Animated_Corpse",        "Animated Corpse",     "Animated Corpse_Animation"),
+    ("Cosplay_Design",         "Cosplay Design",      "Cosplay Design"),
+    ("Cubism",                 "Cubism",              "Cubism"),
+    ("Cyberpunk",              "Cyberpunk",           "Cyberpunk"),
+    ("Digital_Animation",      "Digital Animation",   "Digital Animation"),
+    ("Artware_Variant",        "Artware Variant",     "Artware Variant_Sci-Fi_Graffiti_Digital Media"),
+    ("East_African_Art",       "East African Art",    "East African Art"),
+    ("Engraving",              "Engraving",           "Engraving"),
+    ("Expressionist_Painting", "Expressionist",       "Expressionist painting"),
+    ("Fantasy",                "Fantasy",             "Fantasy"),
+    ("Art_for_Fashion",        "Art for Fashion",     "Art for Fashion Industry"),
+    ("Food_Photography",       "Food Photography",    "Food Photography"),
+    ("Futuristic_SciFi",       "Futuristic Sci-Fi",   "futuristic-futuristic_Sci-Fi"),
+    ("Addams_Family",          "Addams Family",       "Addams Family_Portraiture_Horror"),
+    ("Gothic",                 "Gothic",              "misc-gothic_Gothic"),
+    ("Albrecht_Durer",         "Albrecht Dürer",      "Albrecht Durer"),
+    ("Ice_Sculpture",          "Ice Sculpture",       "Ice Sculpture"),
+    ("Light_Art",              "Light Art",           "Light Art"),
+    ("Line_Art",               "Line Art",            "sai-line art_Uncategorized"),
+    ("Art_with_Metalwork",     "Art with Metalwork",  "Art with Metalwork"),
+    ("BW_Photography",         "B&W Photography",     "Black and White Photography"),
+    ("Mosaic",                 "Mosaic",              "Mosaic"),
+    ("Motion_Design",          "Motion Design",       "Motion Design"),
+    ("Night_Photography",      "Night Photography",   "Night Photography"),
+    ("Oil_Painting",           "Oil Painting",        "Oil Painting"),
+    ("Origami",                "Origami",             "sai-origami_Uncategorized"),
+    ("Photographic",           "Photographic",        "sai-photographic_Photography"),
+    ("Pixel_Art",              "Pixel Art",           "Pixel Art"),
+    ("Pop_Art",                "Pop Art",             "Pop art style"),
+    ("Robotics_Art",           "Robotics Art",        "Robotics Art"),
+    ("Sculpture",              "Sculpture",           "Sculpture"),
+    ("Steampunk",              "Steampunk",           "Steampunk"),
+    ("Street_Art",             "Street Art",          "Street Art"),
+    ("Tattoo_Art",             "Tattoo Art",          "American Traditional_Retro_Tattoo Art"),
+    ("Vampire",                "Bloodthirsty Vampire","Bloodthirsty Vampire_Horror"),
+]
+
+ARCH_STYLE_ITEMS  = [(s[0], s[1], "") for s in _ARCH_STYLES]
+GENERAL_STYLE_ITEMS = [(s[0], s[1], "") for s in _GENERAL_STYLES]
+
+# Combined lookup: blender_id → api_value (arch ids take precedence on collision)
+STYLE_TO_API: dict[str, str] = {s[0]: s[2] for s in _GENERAL_STYLES}
+STYLE_TO_API.update({s[0]: s[2] for s in _ARCH_STYLES})
 
 
 class QuviAIProperties(PropertyGroup):
     """Per-scene QUVIAI state, stored in scene.quviai."""
 
-    # --- Render-TD parameters ---
+    # --- Category ---
+    style_category: EnumProperty(
+        name="Category",
+        description="Architectural or general illustration",
+        items=[
+            ("architectural", "Architectural", "Architecture visualization styles with render-type controls"),
+            ("general",       "General",       "Illustration and artistic styles"),
+        ],
+        default="architectural",
+    )  # type: ignore[assignment]
+
+    # --- Style (per-category) ---
+    arch_style: EnumProperty(
+        name="Style",
+        description="Architectural style",
+        items=ARCH_STYLE_ITEMS,
+        default="no_style",
+    )  # type: ignore[assignment]
+
+    general_style: EnumProperty(
+        name="Style",
+        description="Illustration / artistic style",
+        items=GENERAL_STYLE_ITEMS,
+        default="no_style",
+    )  # type: ignore[assignment]
+
+    # --- Render-TD parameters (architectural only) ---
     prompt: StringProperty(
         name="Prompt",
         description="Text prompt describing the desired render",
         default="",
     )  # type: ignore[assignment]
 
-    style: EnumProperty(
-        name="Style",
-        description="Architectural or artistic style",
-        items=STYLE_ITEMS,
-        default="no_style",
-    )  # type: ignore[assignment]
-
     render_type: EnumProperty(
         name="Render Type",
         description="Architectural render type",
         items=[
-            ("NONE",     "None",     ""),
             ("exterior", "Exterior", "Exterior architectural render"),
             ("interior", "Interior", "Interior architectural render"),
             ("site",     "Site",     "Site plan aerial view"),
@@ -102,7 +149,6 @@ class QuviAIProperties(PropertyGroup):
         name="Time of Day",
         description="Lighting conditions",
         items=[
-            ("NONE",  "None",  ""),
             ("day",   "Day",   "Noon natural sunlight"),
             ("night", "Night", "Night artificial lighting"),
         ],
@@ -113,7 +159,6 @@ class QuviAIProperties(PropertyGroup):
         name="Weather",
         description="Weather conditions",
         items=[
-            ("NONE",   "None",   ""),
             ("sunny",  "Sunny",  ""),
             ("cloudy", "Cloudy", ""),
             ("rainy",  "Rainy",  ""),
