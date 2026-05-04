@@ -318,8 +318,16 @@ class QuviClient:
         on_status: Callable[[TaskStatus], None] | None = None,
     ) -> GenerateResult:
         """Poll a previously submitted task until it completes."""
+        # Use a short per-request timeout for status checks — the endpoint
+        # should always respond in < 5s. A long timeout here blocks the thread
+        # for minutes if the connection stalls, making the UI appear frozen.
+        poll_http = HTTPClient(
+            auth=self._auth,
+            base_url=self._http._base_url,
+            timeout=15,
+        )
         poller = JobPoller(
-            http_client=self._http,
+            http_client=poll_http,
             interval=self._poll_interval,
             timeout=self._poll_timeout,
             on_status=on_status,

@@ -288,15 +288,16 @@ class QUVIAI_OT_render(Operator):
         props.status = "Submitting to QUVIAI..."
         props.result_image_name = ""
 
+        import time as _time
         thread = threading.Thread(
             target=self._run_in_thread,
-            args=(prefs, props, image_b64, params),
+            args=(prefs, props, image_b64, params, _time.monotonic()),
             daemon=True,
         )
         thread.start()
         return {"FINISHED"}
 
-    def _run_in_thread(self, prefs, props, image_b64: str, params: dict) -> None:
+    def _run_in_thread(self, prefs, props, image_b64: str, params: dict, start_time: float) -> None:
         ensure_vendor_in_path()
         try:
             from quviai import (
@@ -323,12 +324,15 @@ class QUVIAI_OT_render(Operator):
             )
 
             def on_status(status):
+                import time as _time
+                elapsed = int(_time.monotonic() - start_time)
                 parts = []
                 if status.queue_position:
                     parts.append(f"Queue: {status.queue_position}")
                 if status.eta_formatted and status.eta_formatted not in ("Completed", ""):
                     parts.append(f"ETA: {status.eta_formatted}")
-                msg = " · ".join(parts) if parts else "Processing…"
+                parts.append(f"{elapsed}s")
+                msg = " · ".join(parts)
                 pct = status.progress_percentage
                 bpy.app.timers.register(lambda: self._set_progress(props, msg, pct))
 
