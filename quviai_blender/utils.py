@@ -31,10 +31,25 @@ def capture_viewport(context: bpy.types.Context) -> str:
     orig_format = scene.render.image_settings.file_format
     orig_quality = scene.render.image_settings.quality
     orig_percentage = scene.render.resolution_percentage
+    orig_res_x = scene.render.resolution_x
+    orig_res_y = scene.render.resolution_y
+
+    # Always capture at long edge = 1920 px regardless of the user's render
+    # resolution setting (often low, e.g. 720p, for fast viewport previews).
+    _BASE = 1920
+    if orig_res_x >= orig_res_y:
+        cap_x = _BASE
+        cap_y = max(1, round(orig_res_y * _BASE / orig_res_x))
+    else:
+        cap_y = _BASE
+        cap_x = max(1, round(orig_res_x * _BASE / orig_res_y))
+
     scene.render.filepath = tmp_path
     scene.render.image_settings.file_format = "WEBP"
     scene.render.image_settings.quality = 95
-    scene.render.resolution_percentage = 100  # always capture at full resolution
+    scene.render.resolution_percentage = 100
+    scene.render.resolution_x = cap_x
+    scene.render.resolution_y = cap_y
 
     try:
         bpy.ops.render.opengl(write_still=True)
@@ -43,6 +58,8 @@ def capture_viewport(context: bpy.types.Context) -> str:
         scene.render.image_settings.file_format = orig_format
         scene.render.image_settings.quality = orig_quality
         scene.render.resolution_percentage = orig_percentage
+        scene.render.resolution_x = orig_res_x
+        scene.render.resolution_y = orig_res_y
 
     img = bpy.data.images.load(tmp_path, check_existing=False)
     img.name = "_quviai_upload_tmp"
