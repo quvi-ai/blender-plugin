@@ -4,7 +4,7 @@ id            = "quviai_render"
 version       = "1.1.0"
 name          = "QUVIAI Render"
 tagline       = "AI-powered rendering and 3D object generation"
-maintainer    = "QUVIAI <hello@quvi.ai>"
+maintainer    = "QUVIAI <support@quvi.ai>"
 type          = "add-on"
 
 blender_version_min = "4.2.0"
