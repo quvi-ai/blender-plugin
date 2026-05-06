@@ -1,4 +1,4 @@
-name: Build Add-on ZIP
+name: Build Add-on ZIPs
 
 on:
   push:
@@ -15,20 +15,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build quviai_blender.zip
+      - name: Build quviai_blender.zip (legacy add-on, Blender 4.0+)
         run: |
           zip -r quviai_blender.zip quviai_blender/ \
             --exclude "*.pyc" \
             --exclude "*/__pycache__/*"
 
-      - name: Upload artifact
+      - name: Build quviai_blender_extension.zip (Extension Platform, Blender 4.2+)
+        run: |
+          mkdir -p _ext_build
+          cp -r quviai_blender/. _ext_build/
+          find _ext_build -name "*.pyc" -delete
+          find _ext_build -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          cd _ext_build && zip -r ../quviai_blender_extension.zip .
+
+      - name: Upload legacy artifact
         uses: actions/upload-artifact@v4
         with:
           name: quviai_blender
           path: quviai_blender.zip
 
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quviai_blender_extension
+          path: quviai_blender_extension.zip
+
       - name: Attach to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: quviai_blender.zip
+          files: |
+            quviai_blender.zip
+            quviai_blender_extension.zip
