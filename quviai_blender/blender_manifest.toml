@@ -9,11 +9,10 @@ type          = "add-on"
 
 blender_version_min = "4.2.0"
 
-license = ["SPDX:GPL-3.0-or-later"]
-category = "Render"
-tags     = ["Render", "AI", "Import-Export"]
-website  = "https://quvi.ai"
-icon     = "icon.png"
+license   = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2025 Quick Vision Studios"]
+tags      = ["Render", "Import-Export", "3D View"]
+website   = "https://quvi.ai"
 
 [permissions]
 network = "Connects to quvi.ai API to submit render and 3D object generation jobs"
