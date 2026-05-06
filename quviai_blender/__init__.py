@@ -7,7 +7,7 @@ Results appear automatically in the Image Editor.
 bl_info = {
     "name": "QUVIAI Render",
     "author": "QUVIAI",
-    "version": (0, 1, 0),
+    "version": (1, 1, 0),
     "blender": (4, 0, 0),
     "location": "View3D > N-Panel > QUVIAI",
     "description": "AI-powered viewport rendering via the QUVIAI API",

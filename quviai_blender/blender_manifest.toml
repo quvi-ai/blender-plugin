@@ -1,0 +1,18 @@
+schema_version = "1.0.0"
+
+id            = "quviai_render"
+version       = "1.1.0"
+name          = "QUVIAI Render"
+tagline       = "AI-powered rendering and 3D object generation"
+maintainer    = "QUVIAI <hello@quvi.ai>"
+type          = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:MIT"]
+category = "Render"
+tags     = ["Render", "AI", "Import-Export"]
+website  = "https://quvi.ai"
+
+[permissions]
+network = "Connects to quvi.ai API to submit render and 3D object generation jobs"
