@@ -92,7 +92,7 @@ class QUVIAI_PT_main(Panel):
                 )
             box.label(text=props.status or "Rendering…", icon="SORTTIME")
         else:
-            layout.operator("quviai.render", icon="RENDER_STILL")
+            layout.operator("quviai.render", text="Render  (2 credits)", icon="RENDER_STILL")
 
             if props.result_image_name:
                 layout.operator("quviai.open_result", icon="IMAGE_DATA")
@@ -101,6 +101,11 @@ class QUVIAI_PT_main(Panel):
                 box = layout.box()
                 icon = "ERROR" if props.status.startswith("Error") else "CHECKMARK"
                 box.label(text=props.status, icon=icon)
+
+        layout.separator()
+        row = layout.row(align=True)
+        row.operator("wm.url_open", text="Visit quvi.ai", icon="URL").url = "https://quvi.ai"
+        row.operator("wm.url_open", text="Terms & Privacy", icon="TEXT").url = "https://quvi.ai/all-terms"
 
 
 class QUVIAI_PT_object(Panel):
@@ -150,12 +155,17 @@ class QUVIAI_PT_object(Panel):
                 )
             box.label(text=props.obj_status or "Generating…", icon="SORTTIME")
         else:
-            layout.operator("quviai.generate_object", icon="MESH_ICOSPHERE")
+            layout.operator("quviai.generate_object", text="Generate 3D Object  (10 credits)", icon="MESH_ICOSPHERE")
 
             if props.obj_status:
                 box = layout.box()
                 icon = "ERROR" if props.obj_status.startswith("Error") else "CHECKMARK"
                 box.label(text=props.obj_status, icon=icon)
+
+        layout.separator()
+        row = layout.row(align=True)
+        row.operator("wm.url_open", text="Visit quvi.ai", icon="URL").url = "https://quvi.ai"
+        row.operator("wm.url_open", text="Terms & Privacy", icon="TEXT").url = "https://quvi.ai/all-terms"
 
 
 def register() -> None:
