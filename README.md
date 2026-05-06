@@ -7,12 +7,22 @@ Official Blender add-on for [QUVIAI](https://quvi.ai). Captures your 3D Viewport
 - Blender 4.0 or newer (tested on Blender 5.1 on Linux, macOS, Windows)
 - A [QUVIAI account](https://quvi.ai)
 
+## Blender Version Compatibility
+
+| Blender version | Package to use | Install method |
+|-----------------|----------------|----------------|
+| 4.0 – 4.1 | `quviai_blender.zip` (legacy add-on) | Edit → Preferences → Add-ons → Install… |
+| 4.2+ | `quviai_blender_extension.zip` (Extension) — **recommended** | Edit → Preferences → Add-ons → Install from Disk… |
+
+Both packages are attached to every [Release](https://github.com/quvi-ai/blender-plugin/releases).
+The Extension format (4.2+) is recommended because it supports Blender's Extensions Platform and automatic updates.
+
 ## Installation
 
 ### From a release ZIP (recommended)
 
-1. Download the latest `quviai_blender_vX.Y.Z.zip` from [Releases](https://github.com/quvi-ai/blender-plugin/releases)
-2. In Blender: **Edit → Preferences → Add-ons → Install…**
+1. Download the correct ZIP for your Blender version from [Releases](https://github.com/quvi-ai/blender-plugin/releases) (see table above)
+2. In Blender: **Edit → Preferences → Add-ons → Install…** (or **Install from Disk…** for the extension)
 3. Select the downloaded `.zip` — do **not** unzip it first
 4. Enable **QUVIAI Render** in the add-on list
 5. Go to **Edit → Preferences → Add-ons → QUVIAI Render** and log in
