@@ -1,6 +1,7 @@
-# Application-level API key that identifies the Blender plugin to the
-# QUVIAI backend middleware. This key is separate from user authentication —
-# it does not grant any user permissions on its own.
+# CLIENT_KEY: Public identifier used by backend to identify
+# the source of the request (Blender plugin). This is NOT a
+# secret credential. It only identifies the client type for
+# the QUVIAI backend's request routing.
 CLIENT_KEY = "quvi_dev_NELiELVUdoN3ATPxaw3fPTjEgNDXNTF1"
 
 # Google OAuth configuration

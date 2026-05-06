@@ -414,12 +414,6 @@ class QUVIAI_OT_render(Operator):
                 lambda: self._finish(props, error=f"Content policy violation: {reason}")
             )
         except Exception as exc:
-            import traceback
-            try:
-                with open("/tmp/quviai_error.txt", "w") as _f:
-                    _f.write(traceback.format_exc())
-            except Exception:
-                pass
             err_msg = str(exc)
             bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
 
@@ -607,12 +601,6 @@ class QUVIAI_OT_generate_object(Operator):
                 lambda: self._finish(props, error=f"Content policy violation: {reason}")
             )
         except Exception as exc:
-            import traceback
-            try:
-                with open("/tmp/quviai_error.txt", "w") as _f:
-                    _f.write(traceback.format_exc())
-            except Exception:
-                pass
             err_msg = str(exc)
             bpy.app.timers.register(lambda: self._finish(props, error=err_msg))
 

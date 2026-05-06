@@ -1,11 +1,16 @@
 # Blender
 *.blend1
 *.blend2
+*.blend3
 
 # Python
 __pycache__/
 *.py[cod]
 *.pyc
+.pytest_cache/
+*.egg-info/
+venv/
+.venv/
 
 # Build artifacts
 *.zip
@@ -21,6 +26,8 @@ __pycache__/
 .env
 .env.*
 *.key
+*.pem
+secrets.py
 
 # OS
 .DS_Store
