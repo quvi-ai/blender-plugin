@@ -99,4 +99,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This Blender add-on is licensed under GPL-3.0-or-later.
+The bundled SDK in vendor/ retains its MIT license.

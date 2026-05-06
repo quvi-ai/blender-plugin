@@ -9,7 +9,7 @@ type          = "add-on"
 
 blender_version_min = "4.2.0"
 
-license = ["SPDX:MIT"]
+license = ["SPDX:GPL-3.0-or-later"]
 category = "Render"
 tags     = ["Render", "AI", "Import-Export"]
 website  = "https://quvi.ai"
