@@ -13,6 +13,7 @@ license = ["SPDX:MIT"]
 category = "Render"
 tags     = ["Render", "AI", "Import-Export"]
 website  = "https://quvi.ai"
+icon     = "icon.png"
 
 [permissions]
 network = "Connects to quvi.ai API to submit render and 3D object generation jobs"
