@@ -15,4 +15,4 @@ tags      = ["Render", "Import-Export", "3D View"]
 website   = "https://quvi.ai"
 
 [permissions]
-network = "Connects to quvi.ai API to submit render and 3D object generation jobs"
+network = "Connects to quvi.ai API for AI render and 3D generation"
