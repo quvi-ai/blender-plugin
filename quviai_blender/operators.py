@@ -13,6 +13,7 @@ from .constants import CLIENT_KEY, GOOGLE_CLIENT_ID, GOOGLE_OAUTH_PORT
 from .properties import STYLE_TO_API
 from .utils import (
     capture_viewport,
+    check_online_access,
     ensure_vendor_in_path,
     get_preferences,
     image_file_to_base64,
@@ -35,6 +36,8 @@ class QUVIAI_OT_login_email(Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
+        if not check_online_access(self):
+            return {"CANCELLED"}
         prefs = get_preferences(context)
 
         if not prefs.email or not prefs.password:
@@ -96,6 +99,8 @@ class QUVIAI_OT_login_google(Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
+        if not check_online_access(self):
+            return {"CANCELLED"}
         prefs = get_preferences(context)
         ensure_vendor_in_path()
         try:
@@ -216,6 +221,8 @@ class QUVIAI_OT_refresh_credits(Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
+        if not check_online_access(self):
+            return {"CANCELLED"}
         prefs = get_preferences(context)
         if not prefs.access_token:
             self.report({"ERROR"}, "Not logged in.")
@@ -285,6 +292,8 @@ class QUVIAI_OT_render(Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
+        if not check_online_access(self):
+            return {"CANCELLED"}
         prefs = get_preferences(context)
         props = context.scene.quviai
 
@@ -489,6 +498,8 @@ class QUVIAI_OT_generate_object(Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context: bpy.types.Context):
+        if not check_online_access(self):
+            return {"CANCELLED"}
         prefs = get_preferences(context)
         props = context.scene.quviai
 

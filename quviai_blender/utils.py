@@ -9,6 +9,17 @@ from pathlib import Path
 import bpy
 
 
+def check_online_access(operator) -> bool:
+    """Check Blender's online access setting. Reports error if disabled."""
+    if not bpy.app.online_access:
+        operator.report(
+            {"ERROR"},
+            "QUVIAI requires internet access. Enable it in Edit > Preferences > System > Network."
+        )
+        return False
+    return True
+
+
 def ensure_vendor_in_path() -> None:
     """Add the add-on vendor directory to sys.path if not already present."""
     vendor = str(Path(__file__).parent / "vendor")
